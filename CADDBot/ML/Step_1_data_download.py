@@ -78,7 +78,7 @@ def main():
     parser.add_argument('-p', '--portal', type=str, default='https://10.3.20.47:8080', help='the IP and port of the D360 server PROD environment')
     parser.add_argument('-u', '--user', type=str, default='yjing@kymeratx.com', help='the user name of the search, should be Kymera email account')
     parser.add_argument('-t', '--token', type=str, default='/fsx/data/AUTOMATION/ML/tokens/yjing_D360.token', help='the token for access internal data through D360 API')
-    parser.add_argument('-o', '--output', type=str, default='D360_api_pull_raw.csv', help='the file name of the output csv')
+    # parser.add_argument('-o', '--output', type=str, default='D360_api_pull_raw.csv', help='the file name of the output csv')
 
     ## Parse the arguments
     args = parser.parse_args()
@@ -101,7 +101,10 @@ def main():
     dataFileName = dataDownload(query_id=QUERY_ID, user_name=USER_NAME, service_token=TOKEN_STR, provider=D360_PORT)
 
     ## ------------------------ load data ------------------------
-    loadCSV(dataFileName)
+    dataDir = './Data'
+    if not os.path.exists(dataDir):
+        os.makedirs(dataDir)    
+    loadCSV(dataFileName, oFileName=f'{dataDir}/D360_api_pull_raw.csv')
 
 ##########################################################################
 if(__name__ == "__main__"):
