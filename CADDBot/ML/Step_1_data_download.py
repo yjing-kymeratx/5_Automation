@@ -73,7 +73,7 @@ def main():
     parser = argparse.ArgumentParser(description='Auto-ML-Part-1: download assay data from D360')
 
     ## Add arguments
-    parser.add_argument('-q', type=int, default=-1, help='the D360 query id of the search')
+    parser.add_argument('-q', type=int, default=2905, help='the D360 query id of the search')
     parser.add_argument('-v', '--verbose', action='store_true')  # on/off flag
     parser.add_argument('-p', '--portal', type=str, default='https://10.3.20.47:8080', help='the IP and port of the D360 server PROD environment')
     parser.add_argument('-u', '--user', type=str, default='yjing@kymeratx.com', help='the user name of the search, should be Kymera email account')
