@@ -13,3 +13,7 @@
 *.tar
 *.gz
 *.dxp
+*.fragdb
+*.mmpdb
+*.smi
+mmp/rdkit/mmpdb
