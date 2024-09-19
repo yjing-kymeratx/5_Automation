@@ -16,4 +16,6 @@
 *.fragdb
 *.mmpdb
 *.smi
+*dict
+*.pdf
 mmp/rdkit/mmpdb
