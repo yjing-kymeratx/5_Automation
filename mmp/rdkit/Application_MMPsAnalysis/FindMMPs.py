@@ -329,8 +329,8 @@ def main():
 
     ## get parameters from arguments
     fileName_in = args.input    # './Data_ADMET_4_MMP_2024Aug27.csv' 
-    sep = args.delimiter    # ',' 
-    fileName_out = f"MMPs_results.csv" if args.output is None else f"{args.output}.csv" 
+    sep = args.delimiter    # ','     
+    fileName_out = f"MMPs_results.csv" if args.output is None else f"{args.output.replace(".csv", "")}.csv" 
 
     colName_mid = args.colId    # 'Compound Name'
     colName_smi = args.colSmi    # 'Smiles'
