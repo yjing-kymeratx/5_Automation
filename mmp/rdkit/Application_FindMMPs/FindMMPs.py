@@ -201,7 +201,7 @@ def DataExtractionFromDB(file_mmpdb, folderName_tmp, savedict=False):
     return dataDict_tables
 
 ##############################################################################################
-############################### Cleanning data ###################################
+############################### Loading data from database ###################################
 ##############################################################################################
 def _findPropValue(dbTable_propValue, cid, prop_id, average=False):
     cond_1 = (dbTable_propValue["compound_id"]==cid)

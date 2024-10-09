@@ -14,15 +14,15 @@ import pandas as pd
 ##################################### Custom Tools ###########################################
 ##############################################################################################
 def _buildCmd(smi_from, myMMPsDB, property=None, radius=-1):
-    if property is None:
+    if property is None or property=="None":
         gen_type = "generate"
-        commandLine = ["mmpdb", f"{gen_type}", "--smiles", f"{smi_from}", f"{myMMPsDB}", "--radius", f"{radius}"]
+        commandLine = ["mmpdb", f"{gen_type}", "--smiles", f"{smi_from}", f"{myMMPsDB}"]
         if radius in [0, 1, 2, 3, 4, 5]:
             commandLine.append("--radius")
             commandLine.append(f"{radius}")
     else:
         gen_type = "transform"
-        commandLine = ["mmpdb", f"{gen_type}", "--smiles", f"{smi_from}", f"{myMMPsDB}", "-r", f"{radius}"]
+        commandLine = ["mmpdb", f"{gen_type}", "--smiles", f"{smi_from}", f"{myMMPsDB}"]
         ##
         proplist = property.split(',')
         for prop in proplist:
@@ -70,8 +70,10 @@ def CleanResults(smi_from, myMMPsDB, property=None, radius=-1):
     dataDict = _runCmd(commandLine)
     dataTable = pd.DataFrame.from_dict(dataDict).T
 
+    print(f"Generated table{dataTable.shape}")
+
     ##
-    if property is None:
+    if property is None or property=="None":
         renameCols = {
             'start': 'mol_start', 
             'final': 'mol_gen', 
@@ -95,7 +97,7 @@ def CleanResults(smi_from, myMMPsDB, property=None, radius=-1):
             
         dataTable["start"] = smi_from
         dataTable["constant"] = np.nan
-        dataTable["Rule_Info"] = 'Rule_env_id: ' + dataTable[f"{property}_rule_environment_id"] + ' (N_Pairs=' + dataTable["EstFa_Rat_count"] + ')'
+        dataTable["Rule_Info"] = 'Rule_env_id: ' + dataTable[f"{property}_rule_environment_id"] + ' (N_Pairs=' + dataTable[f"{property}_count"] + ')'
     ##
     dataTable_gen = dataTable[renameCols.keys()].rename(columns=renameCols)
     print(f"\tGenerate {dataTable_gen.shape[0]} analoges")
