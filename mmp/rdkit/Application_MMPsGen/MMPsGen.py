@@ -17,7 +17,7 @@ def _buildCmd(smi_from, myMMPsDB, property=None, radius=-1):
     if property is None or property=="None":
         gen_type = "generate"
         commandLine = ["mmpdb", f"{gen_type}", "--smiles", f"{smi_from}", f"{myMMPsDB}"]
-        if radius in [0, 1, 2, 3, 4, 5]:
+        if int(radius) in [0, 1, 2, 3, 4, 5]:
             commandLine.append("--radius")
             commandLine.append(f"{radius}")
     else:
@@ -29,7 +29,7 @@ def _buildCmd(smi_from, myMMPsDB, property=None, radius=-1):
             commandLine.append("--property")
             commandLine.append(f"{property}")
         ##
-        if radius in [0, 1, 2, 3, 4, 5]:
+        if int(radius) in [0, 1, 2, 3, 4, 5]:
             commandLine.append("-r")
             commandLine.append(f"{radius}")
 
@@ -131,6 +131,7 @@ def main():
 
     ## ============================ run the code ============================ ##
     ## 1. Load the raw data from csv file
+    print(f"radius is {radius}")
     dataTable_gen = CleanResults(smi_from=smi_from, myMMPsDB=myMMPsDB, property=property, radius=radius)
 
     dataTable_gen.to_csv(f"{fileName_out}", index=False)
