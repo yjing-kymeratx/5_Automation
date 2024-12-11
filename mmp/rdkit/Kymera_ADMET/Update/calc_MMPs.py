@@ -20,6 +20,9 @@ import numpy as np
 import pandas as pd
 
 from rdkit import Chem
+from rdkit import RDLogger
+RDLogger.DisableLog('rdApp.*')
+
 from d360api import d360api
 
 # dateToday = datetime.datetime.today().strftime('%Y%b%d')
@@ -117,10 +120,10 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
         print(f'\tError: cannot read output file {dataFile}; error msg: {e}')
         dataTable = None
     else:
-        print(f'\tThe downloaded data have data shape {dataTable.shape}')
+        print(f"\tThe loaded raw data has <{dataTable.shape[0]}> rows and {dataTable.shape[1]} columns")
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"====>The step 1 costs time = %ds ................" % (costTime))
+    print(f"==>The step 1 costs time = %ds ................" % (costTime))
     
     return dataTable  
 
@@ -264,10 +267,11 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
     ## count time
     beginTime = time.time()
     ## ------------------------------------------------------------------
+    print(f'\tChecking the vadality of the SMILES using RDKit ...')
     dataTable[f"{colName_smi}_raw"] = dataTable[colName_smi].apply(lambda x: x)
     dataTable[colName_smi] = dataTable[colName_smi].apply(_cleanUpSmiles)
     dataTable = dataTable.dropna(subset=[colName_mid, colName_smi]).reset_index(drop=True)
-    print(f'\tThere are total {dataTable.shape[0]} molecules with valid SMILES<{colName_smi}>')
+    print(f'\tThere are total <{dataTable.shape[0]}> molecules with valid SMILES<{colName_smi}>')
 
     ## ------------------------------------------------------------------
     for prop in dict_prop_cols:
@@ -310,7 +314,7 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
 
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"====>The step 2 costs time = %ds ................" % (costTime))
+    print(f"==>The step 2 costs time = %ds ................" % (costTime))
     return dataTable_4_mmp 
 
 ################################################################################################
@@ -398,7 +402,7 @@ def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', 
 
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"====>The step 3 costs time = %ds ................" % (costTime))
+    print(f"==>The step 3 costs time = %ds ................" % (costTime))
 
     return file_mmpdb
 

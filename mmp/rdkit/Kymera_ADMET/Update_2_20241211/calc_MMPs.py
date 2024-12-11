@@ -20,6 +20,9 @@ import numpy as np
 import pandas as pd
 
 from rdkit import Chem
+from rdkit import RDLogger
+RDLogger.DisableLog('rdApp.*')
+
 from d360api import d360api
 
 # dateToday = datetime.datetime.today().strftime('%Y%b%d')
