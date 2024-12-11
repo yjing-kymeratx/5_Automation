@@ -95,7 +95,6 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
     ## ------------------------------------------------------------------
     assert my_query_id is not None or dataFile is not None, f"\tError, both <my_query_id> and <dataFile> are None"
     if my_query_id is not None:
-        print(f"\tRun D360 query on ID {my_query_id}")
         ## download data from D360 using API
         dataTableFileName = dataDownload(my_query_id=my_query_id)
         print(f'\tAll data have been downloaded in file {dataTableFileName}')
@@ -104,14 +103,11 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
         dataFile = f"{tmp_folder}/{dataTableFileName}"
         shutil.move(dataTableFileName, dataFile)
         print(f"\tMove the downloaded file {dataTableFileName} to {dataFile}")
-    else:
-        print(f"\tDirectly loading data from {dataFile}")
 
     try:
         ## determine encoding type
         encoding = determine_encoding(dataFile)
         ## read csv file
-        print(f"\tNow reading csv data using <{encoding}> encoding from {dataFile}")
         dataTable = pd.read_csv(dataFile, encoding=encoding).reset_index(drop=True)
     except Exception as e:
         print(f'\tError: cannot read output file {dataFile}; error msg: {e}')
@@ -129,13 +125,10 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
 ################################################################################################
 ## ------------------------------------------------------------------
 def _cleanUpSmiles(smi):
+    if "|" in smi:
+        smi = smi.split("|")[0]
+    smi = smi.replace("\n", "").replace("\r", "").replace("\r\n", "")
     try:
-        ## text processing
-        if "|" in smi:
-            smi = smi.split("|")[0]
-        smi = smi.replace("\n", "").replace("\r", "").replace("\r\n", "")
-
-        ## rdkit checking
         mol = Chem.MolFromSmiles(smi)
         smi_rdkit = Chem.MolToSmiles(mol)
     except:

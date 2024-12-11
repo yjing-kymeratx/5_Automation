@@ -19,7 +19,6 @@ import subprocess
 import numpy as np
 import pandas as pd
 
-from rdkit import Chem
 from d360api import d360api
 
 # dateToday = datetime.datetime.today().strftime('%Y%b%d')
@@ -95,7 +94,6 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
     ## ------------------------------------------------------------------
     assert my_query_id is not None or dataFile is not None, f"\tError, both <my_query_id> and <dataFile> are None"
     if my_query_id is not None:
-        print(f"\tRun D360 query on ID {my_query_id}")
         ## download data from D360 using API
         dataTableFileName = dataDownload(my_query_id=my_query_id)
         print(f'\tAll data have been downloaded in file {dataTableFileName}')
@@ -104,14 +102,11 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
         dataFile = f"{tmp_folder}/{dataTableFileName}"
         shutil.move(dataTableFileName, dataFile)
         print(f"\tMove the downloaded file {dataTableFileName} to {dataFile}")
-    else:
-        print(f"\tDirectly loading data from {dataFile}")
 
     try:
         ## determine encoding type
         encoding = determine_encoding(dataFile)
         ## read csv file
-        print(f"\tNow reading csv data using <{encoding}> encoding from {dataFile}")
         dataTable = pd.read_csv(dataFile, encoding=encoding).reset_index(drop=True)
     except Exception as e:
         print(f'\tError: cannot read output file {dataFile}; error msg: {e}')
@@ -127,21 +122,6 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
 ################################################################################################
 ###################### Step-2. clean up data and calculate property ############################
 ################################################################################################
-## ------------------------------------------------------------------
-def _cleanUpSmiles(smi):
-    try:
-        ## text processing
-        if "|" in smi:
-            smi = smi.split("|")[0]
-        smi = smi.replace("\n", "").replace("\r", "").replace("\r\n", "")
-
-        ## rdkit checking
-        mol = Chem.MolFromSmiles(smi)
-        smi_rdkit = Chem.MolToSmiles(mol)
-    except:
-        smi_rdkit = np.nan
-    return smi_rdkit
-
 ## ------------------------------------------------------------------
 def CheckThePropertyDataStats(dataTable, col_prop_prefix, propName):
     col_mod, col_num = f"{col_prop_prefix}(Mod)", f"{col_prop_prefix}(Num)"
@@ -264,10 +244,8 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
     ## count time
     beginTime = time.time()
     ## ------------------------------------------------------------------
-    dataTable[f"{colName_smi}_raw"] = dataTable[colName_smi].apply(lambda x: x)
-    dataTable[colName_smi] = dataTable[colName_smi].apply(_cleanUpSmiles)
     dataTable = dataTable.dropna(subset=[colName_mid, colName_smi]).reset_index(drop=True)
-    print(f'\tThere are total {dataTable.shape[0]} molecules with valid SMILES<{colName_smi}>')
+    print(f'There are total {dataTable.shape[0]} molecules with SMILES<{colName_smi}>')
 
     ## ------------------------------------------------------------------
     for prop in dict_prop_cols:
@@ -277,9 +255,9 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
 
         ## remove the 'elacridar' records
         if prop == 'Bioavailability':
-            print(f"\t    The num rows with cleaned {prop} data (raw) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
+            print(f"\t==>The num rows with cleaned {prop} data (raw) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
             dataTable[prop] = dataTable.apply(lambda row: rm_elacridar_records(row, col_perctgF=prop, col_vehicle='ADME PK;Concat;Vehicle'), axis=1)
-            print(f"\t    The num rows with cleaned {prop} data (no elacridar) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
+            print(f"\t==>The num rows with cleaned {prop} data (no elacridar) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
 
         ## calc estFa
         if prop == 'estFa':
@@ -297,7 +275,7 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
             dataTable[prop] = dataTable[dict_prop_cols[prop]].apply(lambda x: x)
 
         ## report
-        print(f"\t    The num rows with cleaned {prop} data is:", str(dataTable[dataTable[prop].notna()].shape[0]))
+        print(f"\t==>The num rows with cleaned {prop} data is:", str(dataTable[dataTable[prop].notna()].shape[0]))
     
     ## ------------------------------------------------------------------
     colNames_basic = [colName_mid, colName_smi]
@@ -448,7 +426,7 @@ def main():
     ## ------------------------------------------------------------------
     #### Step-1. download & load data from D360
     print(f"==> Step 1: download & load data from D360 ...")
-    dataTable = Step_1_load_data(my_query_id, dataFile, tmp_folder)
+    dataTable = Step_1_load_data(my_query_id, dataFile=dataFile, tmp_folder)
     # dataTable = pd.read_csv(f"./tmp/D360_dataset_q_id3539_111224_0120.csv").reset_index(drop=True)
     # dataTable.head(3)
 

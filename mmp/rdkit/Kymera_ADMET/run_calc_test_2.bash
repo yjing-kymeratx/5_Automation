@@ -7,7 +7,8 @@ echo "Today is $dateToday"
 ## ------------------ get a running copy of the update file ------------------
 RootDir="/mnt/data0/Research/5_Automation/mmp/rdkit/Kymera_ADMET"
 ImgDir="$RootDir/Update"
-JobDir="$RootDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# JobDir="$RootDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+JobDir="$RootDir/Update_2_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "1. Initiate job directory <$JobDir>"
 
 ## if job dir exist delete it
@@ -61,12 +62,15 @@ bash2py="$JobDir/bash2py_mmp_local.bash"
 pyScript="$JobDir/calc_MMPs.py"
 queryID=3539
 echo "--------------------------------------------"
-$bash2py python $pyScript -q $queryID    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# $bash2py python $pyScript -q $queryID    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+inFileName="$RootDir/Update_20241211/tmp/D360_dataset_q_id3539_111224_1528.csv"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$bash2py python $pyScript -i $inFileName    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "--------------------------------------------"
 
 ## ------------------ after done with the job, move to "Completed" folder ------------------
 CompleteDir="$RootDir/Completed"
-JobDirNew="$CompleteDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# JobDirNew="$CompleteDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+JobDirNew="$CompleteDir/Update_2_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "5. Move the job dir to <Completed> folder <$JobDirNew>."
 
 ## if job dir exist delete it
