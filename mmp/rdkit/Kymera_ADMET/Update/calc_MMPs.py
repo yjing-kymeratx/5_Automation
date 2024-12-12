@@ -54,7 +54,7 @@ def folderChecker(my_folder='./my_folder'):
         os.makedirs(my_folder)
         print(f"\tCreated folder:", my_folder)
     else:
-        print(f'{my_folder} is existing')
+        print(f'\t{my_folder} is existing')
     return my_folder
 
 ################################################################################################
@@ -123,7 +123,7 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
         print(f"\tThe loaded raw data has <{dataTable.shape[0]}> rows and {dataTable.shape[1]} columns")
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"==>The step 1 costs time = %ds ................" % (costTime))
+    print(f"==> The step 1 costs time = %ds ................" % (costTime))
     
     return dataTable  
 
@@ -314,7 +314,7 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
 
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"==>The step 2 costs time = %ds ................" % (costTime))
+    print(f"==> The step 2 costs time = %ds ................" % (costTime))
     return dataTable_4_mmp 
 
 ################################################################################################
@@ -402,7 +402,7 @@ def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', 
 
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"==>The step 3 costs time = %ds ................" % (costTime))
+    print(f"==> The step 3 costs time = %ds ................" % (costTime))
 
     return file_mmpdb
 

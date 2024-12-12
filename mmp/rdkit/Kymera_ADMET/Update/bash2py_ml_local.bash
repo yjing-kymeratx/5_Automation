@@ -15,7 +15,7 @@ source /home/yjing/data0/software/anaconda/anaconda3/etc/profile.d/conda.sh
 
 
 ## 3) Activate custom conda environments
-conda activate /home/yjing/data0/software/anaconda/anaconda3/envs/mmp    ## 'ml', 'gpb39' ==> 'yjing'
+conda activate /home/yjing/data0/software/anaconda/anaconda3/envs/ml    ## 'ml', 'gpb39' ==> 'yjing'
 
 ## 4) define global variables & import python packages?
 # export PatGlobalVars=/fsx/bin/PatGlobalVars.py

@@ -8,7 +8,7 @@ echo "Today is $dateToday"
 RootDir="/mnt/data0/Research/5_Automation/mmp/rdkit/Kymera_ADMET"
 ImgDir="$RootDir/Update"
 # JobDir="$RootDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-JobDir="$RootDir/Update_2_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+JobDir="$RootDir/Update_$dateToday-2"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "1. Initiate job directory <$JobDir>"
 
 ## if job dir exist delete it
@@ -44,7 +44,7 @@ echo "    making a directory $resultsFolderPath"
 ## 
 tmpFolderPath="$JobDir/tmp"
 if [ -d "$tmpFolderPath" ]; then
-    echo "    <$tmpFolderPath> Folder exists. Deleting..."
+    echo "    Folder <$tmpFolderPath> exists. Deleting..."
     rm -rf "$tmpFolderPath"
 fi
 mkdir $tmpFolderPath
@@ -69,18 +69,19 @@ echo "--------------------------------------------"
 
 ## ------------------ after done with the job, move to "Completed" folder ------------------
 CompleteDir="$RootDir/Completed"
+
 # JobDirNew="$CompleteDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-JobDirNew="$CompleteDir/Update_2_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-echo "5. Move the job dir to <Completed> folder <$JobDirNew>."
+JobDirNew="$CompleteDir/Update_$dateToday-2"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+echo "5. Move the job dir to <Completed> folder <$JobDirNew>"
 
 ## if job dir exist delete it
 if [ -d "$JobDirNew" ]; then
     echo "    Folder <$JobDirNew> exists. Deleting..."
     rm -rf "$JobDirNew"
 fi
-# mkdir $JobDirNew
-# echo "making a directory $JobDirNew"
 
 cd "$RootDir"
+echo "    change directory to <$RootDir>"
+
 mv $JobDir $JobDirNew
 echo "    move folder <$JobDir> to <$JobDirNew>"

@@ -143,7 +143,9 @@ def clean_up_prop_data(row, col_prop_prefix, propName):
     colName_num = f"{col_prop_prefix}(Num)"
 
     if row[colName_mod] == '=' and row.notna()[colName_num]:
-        result = row[colName_num] 
+        result = row[colName_num]
+        if result == '':
+            result = np.nan
     else:
         result = np.nan
     return result
@@ -426,7 +428,7 @@ def main():
     ## ------------------------------------------------------------------
     #### Step-1. download & load data from D360
     print(f"==> Step 1: download & load data from D360 ...")
-    dataTable = Step_1_load_data(my_query_id, dataFile=dataFile, tmp_folder)
+    dataTable = Step_1_load_data(my_query_id, dataFile, tmp_folder)
     # dataTable = pd.read_csv(f"./tmp/D360_dataset_q_id3539_111224_0120.csv").reset_index(drop=True)
     # dataTable.head(3)
 

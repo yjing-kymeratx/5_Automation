@@ -7,7 +7,8 @@ echo "Today is $dateToday"
 ## ------------------ get a running copy of the update file ------------------
 RootDir="/mnt/data0/Research/5_Automation/mmp/rdkit/Kymera_ADMET"
 ImgDir="$RootDir/Update"
-JobDir="$RootDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# JobDir="$RootDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+JobDir="$RootDir/Update_$dateToday-3"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "1. Initiate job directory <$JobDir>"
 
 ## if job dir exist delete it
@@ -34,7 +35,7 @@ echo "3. Check if the <tmp> & <results> folder existed in job dir <$JobDir>"
 
 resultsFolderPath="$JobDir/results"
 if [ -d "$resultsFolderPath" ]; then
-    echo "    Folder <$resultsFolderPath> exists. Deleting..."
+    echo "    <$resultsFolderPath> Folder exists. Deleting..."
     rm -rf "$resultsFolderPath"
 fi
 mkdir $resultsFolderPath
@@ -57,16 +58,20 @@ echo "    Change directory to $JobDir"
 cd $JobDir
 
 echo "    run commandline script ..."
-bash2py="$JobDir/bash2py_mmp_local.bash"
+bash2py="$JobDir/bash2py_ml_local.bash"
 pyScript="$JobDir/calc_MMPs.py"
 queryID=3539
 echo "--------------------------------------------"
-$bash2py python $pyScript -q $queryID    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# $bash2py python $pyScript -q $queryID    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# inFileName="$JobDir/tmp/D360_dataset_q_id3539_111224_1528.csv"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+inFileName="$RootDir/Completed/Update_20241211-1/tmp/D360_dataset_q_id3539_111224_1528.csv"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$bash2py python $pyScript -i $inFileName    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "--------------------------------------------"
 
 ## ------------------ after done with the job, move to "Completed" folder ------------------
 CompleteDir="$RootDir/Completed"
-JobDirNew="$CompleteDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# JobDirNew="$CompleteDir/Update_$dateToday"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+JobDirNew="$CompleteDir/Update_$dateToday-3"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "5. Move the job dir to <Completed> folder <$JobDirNew>."
 
 ## if job dir exist delete it
