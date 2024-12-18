@@ -19,8 +19,3 @@
 *dict
 *.pdf
 *.csv
-mmp/rdkit/mmpdb/*
-mmp/rdkit/Kymera_All_no_screening/results/*
-mmp/rdkit/Kymera_All_no_screening/results/*.csv
-mmp/rdkit/Kymera_All/results/*
-mmp/rdkit/Kymera_All/results/*.csv
