@@ -153,10 +153,10 @@ def CheckThePropertyDataStats(dataTable, col_prop_prefix, propName):
         cond_2 = (dataTable[col_num].notna())
         # print(dataTable[cond_1].shape, dataTable[cond_2].shape)
         data_size_available = dataTable[cond_1 & cond_2].shape[0]
-        print(f"\tThere are total {data_size_available} existing data for {propName}")
+        print(f"\tThere are total <{data_size_available}> existing data for <{propName}>")
         passCheck = True
     else:
-        print(f"\tWarning! The column {col_prop_prefix}(Mod)/(Num) is not in the table.")
+        print(f"\tWarning! The column <{col_prop_prefix}(Mod)/(Num)> is not in the table.")
         passCheck = False
     return passCheck
 
@@ -177,7 +177,7 @@ def rm_elacridar_records(row, col_perctgF='Bioavailability', col_vehicle='ADME P
     if row.notna()[col_vehicle]:
         if 'elacridar' in row[col_vehicle]:
             result = np.nan
-            print(f"\t------>change from {row[col_perctgF]} to np.nan, {row[col_vehicle]}")
+            # print(f"\t------>change from {row[col_perctgF]} to np.nan, {row[col_vehicle]}")
     return result
 
 def calc_EstFa_fromAdm(PKF_PO, Clobs_IV, Species='Rat'):
@@ -190,12 +190,12 @@ def calc_EstFa_fromAdm(PKF_PO, Clobs_IV, Species='Rat'):
 
 def calc_EstFa(row, colName_pctF, colName_Clobs, Species='Rat'):
     try:
-        pctgF_PO, Clobs_IV = row[colName_pctgF], row[colName_Clobs]
+        pctgF_PO, Clobs_IV = row[colName_pctF], row[colName_Clobs]
     except Exception as e:
         # print(f"\tWarning! Cannot get data for this row from column <{colName_pctgF}> or <{colName_Clobs}>")
         result = np.nan
     else:
-        result = calc_EstFa(pctgF_PO, Clobs_IV, Species=Species)
+        result = calc_EstFa_fromAdm(pctgF_PO, Clobs_IV, Species=Species)
     return result
 
 ## ----------------------------- hERG -------------------------------------
@@ -245,13 +245,14 @@ def calc_hERG_eIC50(row, col_hERG_cmts):
             for cmnt in row[col_hERG_cmts].split(';'):
                 this_eIC50 = calc_eIC50_hERG_from_cmt(cmnt)
                 hERG_eIC50_list.append(this_eIC50)
-            hERG_eIC50 = calc_mean(hERG_eIC50_list)
+            result = calc_mean(hERG_eIC50_list)
         else:
             result = np.nan
             # print(f"\tNo data in this row for column <{col_hERG_cmts}>")
     else:
         result = np.nan
         print(f"\tColumn <{col_hERG_cmts}> is not in the Table")
+    return result
 
 def calc_hERG_mIC50(row, col_hERG_IC50, col_hERG_eIC50):
     if row.notna()[col_hERG_IC50]:
@@ -281,9 +282,9 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
 
         ## remove the 'elacridar' records
         if prop == 'Bioavailability':
-            print(f"\t    The num rows with cleaned {prop} data (raw) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
+            print(f"\t    The num rows with cleaned <{prop}> data (raw) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
             dataTable[prop] = dataTable.apply(lambda row: rm_elacridar_records(row, col_perctgF=prop, col_vehicle='ADME PK;Concat;Vehicle'), axis=1)
-            print(f"\t    The num rows with cleaned {prop} data (no elacridar) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
+            print(f"\t    The num rows with cleaned <{prop}> data (no elacridar) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
 
         ## calc estFa
         if prop == 'estFa':
@@ -301,7 +302,7 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
             dataTable[prop] = dataTable[dict_prop_cols[prop]].apply(lambda x: x)
 
         ## report
-        print(f"\t    The num rows with cleaned {prop} data is:", str(dataTable[dataTable[prop].notna()].shape[0]))
+        print(f"\t    The num rows with cleaned <{prop}> data is:", str(dataTable[dataTable[prop].notna()].shape[0]))
     
     ## ------------------------------------------------------------------
     colNames_basic = [colName_mid, colName_smi]
@@ -346,8 +347,8 @@ def prep_smi_file(dataTable, colName_prop_list, colName_mid='Compound Name', col
 
             for prop_name in colName_prop_list:
                 try:
-                    if dataTable_raw[prop_name].notna()[idx]:
-                        mol_prop = float(dataTable_raw[prop_name][idx])
+                    if dataTable[prop_name].notna()[idx]:
+                        mol_prop = float(dataTable[prop_name][idx])
                     else:
                         mol_prop = "*"
                 except Exception as e:
