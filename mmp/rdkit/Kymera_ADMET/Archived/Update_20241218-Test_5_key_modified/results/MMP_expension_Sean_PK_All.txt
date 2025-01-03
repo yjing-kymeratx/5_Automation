@@ -1,0 +1,1 @@
+Unable to fragment --smiles 'CCN(C)C(=O)C1=CC2=C(N1)C(F)=CN=C2C1=C(OC(F)(F)F)C=C(C2CCN(CC3CCN(C4=CC=CC5=C4N(C)C(=O)N5C4CCC(=O)NC4=O)CC3)CC2)C=C1': too many rotatable bonds

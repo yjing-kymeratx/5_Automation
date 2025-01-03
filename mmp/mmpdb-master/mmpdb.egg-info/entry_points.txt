@@ -1,0 +1,2 @@
+[console_scripts]
+mmpdb = mmpdblib.cli:main

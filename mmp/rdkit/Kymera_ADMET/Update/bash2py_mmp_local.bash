@@ -11,11 +11,12 @@ unset PYTHONPATH
 
 ## 2) Initiate conda for python env
 #source /home/yjing/anaconda3/etc/profile.d/conda.sh
-source /home/yjing/data0/software/anaconda/anaconda3/etc/profile.d/conda.sh
+# source /home/yjing/data0/software/anaconda/anaconda3/etc/profile.d/conda.sh
 
 
 ## 3) Activate custom conda environments
-conda activate /home/yjing/data0/software/anaconda/anaconda3/envs/mmp    ## 'ml', 'gpb39' ==> 'yjing'
+# conda activate /home/yjing/data0/software/anaconda/anaconda3/envs/ml    ## 'ml', 'gpb39' ==> 'yjing'
+export PATH=/mnt/data0/software/anaconda/anaconda3/envs/mmpdb/bin/:$PATH
 
 ## 4) define global variables & import python packages?
 # export PatGlobalVars=/fsx/bin/PatGlobalVars.py

@@ -1,0 +1,1 @@
+Preparing record 0                  Fragmented record 0/1 (0.0%)                            Cannot parse smiles: too many rotatable bonds

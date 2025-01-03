@@ -8,7 +8,7 @@ echo "Today is $dateToday"
 RootDir="/mnt/data0/Research/5_Automation/mmp/rdkit/Kymera_ADMET"
 ImgDir="$RootDir/Update"
 
-JobName="Update_$dateToday-AllDB_modifiedParam"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+JobName="Update_$dateToday-AllDB"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 JobDir="$RootDir/$JobName"
 echo "1. Initiate job directory <$JobDir>"
 
@@ -63,9 +63,9 @@ bash2py="$JobDir/bash2py_mmp_local.bash"
 pyScript="$JobDir/calc_MMPs.py"
 queryID=3539    #4975
 echo "--------------------------------------------"
-$bash2py python $pyScript -q $queryID    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-# inFileName="$RootDir/Completed/Update_20241211-1/tmp/D360_dataset_q_id3539_111224_1528.csv"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-# $bash2py python $pyScript -i $inFileName    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# $bash2py python $pyScript -q $queryID    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+inFileName="$RootDir/D360_dataset_q_id3539_111224_1528.csv"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$bash2py python $pyScript -i $inFileName    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "--------------------------------------------"
 
 ## ------------------ after done with the job, move to "Completed" folder ------------------
@@ -84,3 +84,7 @@ fi
 cd "$RootDir"
 mv $JobDir $JobDirNew
 echo "    move folder <$JobDir> to <$JobDirNew>"
+
+## ------------------ Check MMPDB info ------------------
+cd $JobDirNew
+mmpdb list --all ./results/Compounds_All.mmpdb 2>&1 | tee ./results/MMPDB_info.txt
