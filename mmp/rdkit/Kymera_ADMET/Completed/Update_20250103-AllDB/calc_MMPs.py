@@ -11,7 +11,7 @@ import time
 import datetime
 
 import json
-
+import shutil
 import chardet
 import argparse
 import subprocess
@@ -19,56 +19,42 @@ import subprocess
 import numpy as np
 import pandas as pd
 
-from rdkit import Chem, RDLogger
+from rdkit import Chem
+from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 
 from d360api import d360api
+
 # dateToday = datetime.datetime.today().strftime('%Y%b%d')
 
 ## =====================================================================================   
 ## =================================== load argparses ==================================
 ## =====================================================================================
 def Step_0_load_args():
-    print(f"==> Step 0: load the parameters ... ")
-    ##
     parser = argparse.ArgumentParser(description='Usage ot cxcalc_runner.py, details to be added later')
-    ## input 
     parser.add_argument('-q', action="store", type=int, default=None, help='D360 Query ID')
     parser.add_argument('-i', action="store", default=None, help='The input file downloaded from D360')
-    # parser.add_argument('-d', action="store", default=',', help='The delimiter of input csv file for separate columns')
-
-    ## data cols in the input
     parser.add_argument('--colName_cid', action="store", default="Compound Name", help='The column name of mol KT ID')
     parser.add_argument('--colName_smi', action="store", default="Structure", help='The column name of SMILES')
     parser.add_argument('--colName_eid', action="store", default="External ID", help='The column name of external ID')
     parser.add_argument('--colName_prj', action="store", default="Concat;Project", help='The column name of Projects')
     parser.add_argument('--prop_dict_file', action="store", default="prop_cols_matches.json", help='The json file which specify the property of interest and the columns infomation')
 
-    ## parse the arguments
     args = parser.parse_args()
 
     return args
 
-##############################################################################################
-##################################### Custom Tools ###########################################
-##############################################################################################
+##--------------------------------------------------------------
 def folderChecker(my_folder='./my_folder'):
-    ## ------- simply clean up the folder path -------
-    if my_folder is None:
-        my_folder='./tmp'
-    elif '/' not in my_folder:
-        my_folder = os.path.join(os.getcwd(), my_folder)
-
-    ## ------- Check if the folder exists -------
+    # Check if the folder exists
     check_folder = os.path.isdir(my_folder)
     # os.path.exists(dir_outputs)
+    # If the folder does not exist, create it
     if not check_folder:
-        # If the folder does not exist, create it
         os.makedirs(my_folder)
-        print(f"\tCreated folder: {my_folder}")
+        print(f"\tCreated folder:", my_folder)
     else:
         print(f'\t{my_folder} is existing')
-
     return my_folder
 
 ################################################################################################
@@ -118,7 +104,6 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
         print(f'\tAll data have been downloaded in file {dataTableFileName}')
 
         ## move the csv file to tmp folder
-        import shutil
         dataFile = f"{tmp_folder}/{dataTableFileName}"
         shutil.move(dataTableFileName, dataFile)
         print(f"\tMove the downloaded file {dataTableFileName} to {dataFile}")
@@ -127,8 +112,8 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
 
     try:
         ## determine encoding type
-        encoding = determine_encoding(dataFile)
-        # encoding = 'ISO-8859-1'
+        # encoding = determine_encoding(dataFile)
+        encoding = 'ISO-8859-1'
         ## read csv file
         print(f"\tNow reading csv data using <{encoding}> encoding from {dataFile}")
         dataTable = pd.read_csv(dataFile, encoding=encoding).reset_index(drop=True)
@@ -199,8 +184,6 @@ def rm_elacridar_records(row, col_perctgF='Bioavailability', col_vehicle='ADME P
 def calc_EstFa_fromAdm(PKF_PO, Clobs_IV, Species='Rat'):
     dict_IV_ratio = {'Rat': 90, 'Mouse': 70, 'Dog': 30, 'Monkey': 44}    
     try:
-        PKF_PO = PKF_PO if PKF_PO < 100 else 100
-        PKF_PO = PKF_PO if PKF_PO > 0 else 0
         estfa = (PKF_PO/100)/(1-(Clobs_IV/dict_IV_ratio[Species]))
     except Exception as e:
         estfa = np.nan
@@ -342,7 +325,7 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
 ## ---------------- prepare the Smiles file and property file ----------------
 def prep_smi_file(dataTable, colName_prop_list, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results'):
     print(f"\tNow starting preparing the SMILES file and property CSV file for mmpdb ...")
-    ## ------------------------------------------------------------------
+    
     ## the SMILES file for fragmentation
     file_smi = f'{output_folder}/Compounds_All.smi'
     file_prop_csv = f'{output_folder}/Property_All.csv'
@@ -355,13 +338,14 @@ def prep_smi_file(dataTable, colName_prop_list, colName_mid='Compound Name', col
             if idx % 1000 == 0:
                 print(f"\t\trow {idx}")    
 
-            ## prepare the SMILES output
             mol_id = dataTable[colName_mid][idx]
-            mol_smi = dataTable[colName_smi][idx]            
+            mol_smi = dataTable[colName_smi][idx]
+
+            ## prepare the SMILES output
             this_line = f'{mol_smi}{delimiter}{mol_id}'
             output_file.write(this_line + "\n")  # Add a newline character after each string
 
-            ## ----------------- prepare the property CSV table as dict -----------------
+            ## prepare the property CSV output as dict
             data_dict_prop[idx] = {}
             data_dict_prop[idx]['ID'] = mol_id
 
@@ -374,13 +358,12 @@ def prep_smi_file(dataTable, colName_prop_list, colName_mid='Compound Name', col
                 except Exception as e:
                     data_dict_prop[idx][prop_name] = "*"
                     # print(f'\tThis mol {mol_id} does not have a proper property value: {e}')
-                    print(f'\t---->Warning! This mol {mol_id} does not have a proper property value: {e}')
                 else:
                     data_dict_prop[idx][prop_name] = mol_prop
-            ## --------------------------------------------------------------------
+        
     print(f'\tThe SMILES strings have been saved into .smi file: {file_smi}')
         
-    ## ----------------- save the csv results -----------------
+    ## save the csv results
     data_table_prop = pd.DataFrame.from_dict(data_dict_prop).T
     data_table_prop.to_csv(file_prop_csv, index=False, sep=delimiter)
     print(f'\tThe property data ({data_table_prop.shape}) have been saved into .csv file: {file_smi}')
@@ -408,13 +391,15 @@ def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', 
     colName_prop_list = list(dict_prop_cols)
     file_smi, file_prop_csv = prep_smi_file(dataTable, colName_prop_list, colName_mid, colName_smi, output_folder)
 
-    ## -------------------- fragmentation SMILES -----------------------------
+    ## ------------------------------------------------------------------
+    ## Fragment the SMILES
     file_fragdb = f'{output_folder}/Compounds_All.fragdb'
     commandLine_1 = ['mmpdb', 'fragment', file_smi, '-o', file_fragdb]
     (output_1, error_1) = run_cmd(commandLine_1)
     print(f'\tThe fragmentation is completed and saved into file {file_fragdb}')
 
-    ## ----------- Indexing to find the MMPs and load the activity data -----------
+    ## ------------------------------------------------------------------
+    ## Indexing to find the MMPs in the fragment file & Load the activity/property data
     file_mmpdb = f'{output_folder}/Compounds_All.mmpdb'
     commandLine_2 = ['mmpdb', 'index', file_fragdb, '-o', file_mmpdb, '--properties', file_prop_csv]
     (output_2, error_2) = run_cmd(commandLine_2)
@@ -431,23 +416,19 @@ def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', 
 ################################################################################################
 def main():
     ## ------------------------------------------------------------------
+    print(f"==> Step 0: load the parameters ... ")
     args = Step_0_load_args()
 
-    ## ----------------- get parameters from arguments --------------------
-    ## ----------- input -----------
+    ## ------------------------------------------------------------------
     my_query_id = args.q    # 3539
-    fileName_in = args.i    # None
-    # sep = args.d
-    
-    ## ----------- input cols -----------
+    dataFile = args.i    # None
+
     colName_mid = args.colName_cid    # 'Compound Name'
     colName_smi = args.colName_smi    # 'Structure' or 'Smiles'
     # colName_proj = args.colName_prj    # 'Concat;Project'
     # colName_eid = args.colName_eid    # 'Concat;External Id'
-    
-    ## ----------- props -----------
-    # colNames_activity = args.colAssay    # 'F%_Rat,EstFa_Rat,permeability,efflux,hERG_IC50,hERG_mixedIC50,logD_CDD'
-    # ## Reading JSON data from a file
+
+    # Reading JSON data from a file
     prop_dict_file = args.prop_dict_file
     print(prop_dict_file)
     with open(prop_dict_file, 'r') as infile:
@@ -468,14 +449,15 @@ def main():
         }    
     '''
 
-    ## ----------- create tmp folder -----------
+    ## ------------------------------------------------------------------
+    ## create tmp folder
     tmp_folder = folderChecker(f"./tmp")
     output_folder = folderChecker(f"./results")
     
     ## ------------------------------------------------------------------
     #### Step-1. download & load data from D360
     print(f"==> Step 1: download & load data from D360 ...")
-    dataTable = Step_1_load_data(my_query_id, fileName_in, tmp_folder)
+    dataTable = Step_1_load_data(my_query_id, dataFile, tmp_folder)
     # dataTable = pd.read_csv(f"./tmp/D360_dataset_q_id3539_111224_0120.csv").reset_index(drop=True)
     # dataTable.head(3)
 
