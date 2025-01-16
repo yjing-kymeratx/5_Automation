@@ -1,5 +1,5 @@
-# !/fsx/home/yjing/apps/anaconda3/env/yjing/bin python
-# calc_MMPs.py
+#!/fsx/home/yjing/apps/anaconda3/env/yjing/bin python
+# findMMPs_new
 ##############################################################################################
 ##################################### load packages ###########################################
 ##############################################################################################
@@ -20,8 +20,7 @@ import pandas as pd
 
 from rdkit import Chem, RDLogger
 RDLogger.DisableLog('rdApp.*')
-
-from d360api import d360api
+from rdkit.Chem import rdFMCS, rdMolDescriptors, Descriptors
 
 # dateToday = datetime.datetime.today().strftime('%Y%b%d')
 
@@ -80,20 +79,14 @@ def _cleanUpSmiles(smi):
     return smi_rdkit
 
 ## ------------------------------------------------------------------
-def dataDownload(my_query_id=3539, user_name="yjing@kymeratx.com", tokenFile='yjing_D360.token'):
-    # Create API connection to the PROD server
-    my_d360 = d360api(provider="https://10.3.20.47:8080")  # PROD environment
-    user_name = user_name
-    tokenFile = tokenFile
-    
-    with open(tokenFile, 'r') as ofh:
-        service_token = ofh.readlines()[0]
+def _calc_mw_rdkit(smi):
+    try:
+        mol = Chem.MolFromSmiles(smi)
+        mw = rdMolDescriptors.CalcExactMolWt(mol)
+    except Exception as e:
+        mw = np.nan
+    return mw
 
-    # Authenticate connection using service token
-    print(f"\tThe D360 query ID is {my_query_id}")
-    my_d360.authenticate_servicetoken(servicetoken=service_token, user=user_name)
-    results = my_d360.download_query_results(query_id=my_query_id)
-    return results
 ########################################################################
 ############################# Step-0. load argparses ###########################
 ########################################################################
@@ -102,7 +95,7 @@ def Step_0_load_args():
     ## 
     parser = argparse.ArgumentParser(description='This is the script to identify the MMPs from existing tables')
     ## input
-    parser.add_argument('-q', action="store", type=int, default=None, help='D360 Query ID')
+    # parser.add_argument('-q', action="store", type=int, default=None, help='D360 Query ID')
     parser.add_argument('-i', action="store", default=None, help='The input csv file for identify the MMPs')
     parser.add_argument('-d', action="store", default=',', help='The delimiter of input csv file for separate columns')
 
@@ -112,7 +105,8 @@ def Step_0_load_args():
     parser.add_argument('--colName_eid', action="store", default="External ID", help='The column name of external ID')
     parser.add_argument('--colName_prj', action="store", default="Concat;Project", help='The column name of Projects')
 
-    parser.add_argument('--prop_dict_file', action="store", default="prop_cols_matches.json", help='The json file which specify the property of interest and the columns infomation')
+    # parser.add_argument('--prop_dict_file', action="store", default="prop_cols_matches.json", help='The json file which specify the property of interest and the columns infomation')
+    parser.add_argument('--colName_assay', action="store", default='ActivityColumn1,ActivityColumn2', help='The column names of the assay values, separated by comma with no space')
 
     parser.add_argument('-o', '--output', action="store", default="MMPs_results", help='The name of output csv file to save the MMPs data')
     parser.add_argument('--tmpFolder', action="store", default='./tmp', help='The tmp folder')
@@ -126,25 +120,12 @@ def Step_0_load_args():
 ##############################################################################################
 ############################ Step-1. data collection & clean ############################
 ##############################################################################################
-def Step_1_load_data(my_query_id=3539, fileName_in=None, tmp_folder="./tmp", sep=','):
+def Step_1_load_data(fileName_in, colName_mid, colName_smi, colNames_activity, sep=','):
     ## count time
     beginTime = time.time()
     ## ------------------------------------------------------------------
-    assert my_query_id is not None or fileName_in is not None, f"\tError, both <my_query_id> and <dataFile> are None"
-    if my_query_id is not None:
-        print(f"\tRun D360 query on ID {my_query_id}")
-        ## download data from D360 using API
-        dataTableFileName = dataDownload(my_query_id=my_query_id)
-        print(f'\tAll data have been downloaded in file {dataTableFileName}')
-
-        ## move the csv file to tmp folder
-        fileName_in = f"{tmp_folder}/{dataTableFileName}"
-        shutil.move(dataTableFileName, fileName_in)
-        print(f"\tMove the downloaded file {dataTableFileName} to {fileName_in}")
-    else:
-        print(f"\tDirectly loading data from {fileName_in}")
-        assert os.path.exists(fileName_in), f"File {fileName_in} does not exist"
-
+    print(f"1. Loading csv from {fileName_in}")
+    assert os.path.exists(fileName_in), f"File {fileName_in} does not exist"
     try:
         ## determine encoding type
         encoding = _determine_encoding(fileName_in)
@@ -158,135 +139,42 @@ def Step_1_load_data(my_query_id=3539, fileName_in=None, tmp_folder="./tmp", sep
     else:
         print(f"\tThe loaded raw data has <{dataTable.shape[0]}> rows and {dataTable.shape[1]} columns")
 
+    ## ------------------------- check the columns -------------------------
+    assert colName_mid in dataTable.columns, f"Error! The mol ID column <{colName_mid}> does not exist"
+    print(f"\tColumn for compound ID is {colName_mid}")
+    
+    assert colName_smi in dataTable.columns, f"Error! The mol SMILES column <{colName_smi}> does not exist"
+    print(f"\tColumn for compound SMILES is {colName_smi}")
+
+    ## ------------------------- check the prop columns -------------------------
+    if colNames_activity == "*":
+        if colNames_activity not in dataTable.columns:
+            colName_prop_list = [col for col in dataTable.columns if col not in [colName_mid, colName_smi]]
+        else:
+            print(f"\tError! You decide to use all columns but there is a column named * in the dataset")
+            colName_prop_list = [colNames_activity]
+        print(f"\tUsing columns {colName_prop_list}")
+    else:
+        colName_prop_list = colNames_activity.split(',')
+        print(f"\tColumns for compound activity includes {colName_prop_list}")
+        for prop_name in colName_prop_list:
+            if prop_name not in dataTable.columns:
+                print(f"\t---->Warning! {prop_name} is not in the csv file, pls check ...")
+                colName_prop_list.remove(prop_name)
+    ## add molecular weight for general pair analysis
+    if 'MW' not in colName_prop_list:
+        colName_prop_list.append('MW')
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
     print(f"==> Step 1 <Loading csv data> complete, costs time = %ds ................\n" % (costTime))
 
-    return dataTable
+    return dataTable, colName_prop_list
 
 ################################################################################################
 ###################### Step-2. clean up data and calculate property ############################
 ################################################################################################
-
-def CheckThePropertyDataStats(dataTable, col_prop_prefix, propName):
-    col_mod, col_num = f"{col_prop_prefix}(Mod)", f"{col_prop_prefix}(Num)"
-    if (col_mod in dataTable) and (col_num in dataTable):
-        cond_1 = (dataTable[col_mod]=='=')
-        cond_2 = (dataTable[col_num].notna())
-        # print(dataTable[cond_1].shape, dataTable[cond_2].shape)
-        data_size_available = dataTable[cond_1 & cond_2].shape[0]
-        print(f"\tThere are total <{data_size_available}> existing data for <{propName}>")
-        passCheck = True
-    else:
-        print(f"\tWarning! The column <{col_prop_prefix}(Mod)/(Num)> is not in the table.")
-        passCheck = False
-    return passCheck
-
-## ------------------------------------------------------------------
-def clean_up_prop_data(row, col_prop_prefix, propName):
-    colName_mod = f"{col_prop_prefix}(Mod)"
-    colName_num = f"{col_prop_prefix}(Num)"
-
-    if row[colName_mod] == '=' and row.notna()[colName_num]:
-        result = row[colName_num] 
-    else:
-        result = np.nan
-    return result
-
-## ----------------------------- F% and EstFa -------------------------------------
-def rm_elacridar_records(row, col_perctgF='Bioavailability', col_vehicle='ADME PK;Concat;Vehicle'):
-    result = row[col_perctgF]
-    if row.notna()[col_vehicle]:
-        if 'elacridar' in row[col_vehicle]:
-            result = np.nan
-            # print(f"\t------>change from {row[col_perctgF]} to np.nan, {row[col_vehicle]}")
-    return result
-
-def calc_EstFa_fromAdm(PKF_PO, Clobs_IV, Species='Rat'):
-    dict_IV_ratio = {'Rat': 90, 'Mouse': 70, 'Dog': 30, 'Monkey': 44}    
-    try:
-        estfa = (PKF_PO/100)/(1-(Clobs_IV/dict_IV_ratio[Species]))
-    except Exception as e:
-        estfa = np.nan
-    return estfa
-
-def calc_EstFa(row, colName_pctF, colName_Clobs, Species='Rat'):
-    try:
-        pctgF_PO, Clobs_IV = row[colName_pctF], row[colName_Clobs]
-    except Exception as e:
-        # print(f"\tWarning! Cannot get data for this row from column <{colName_pctgF}> or <{colName_Clobs}>")
-        result = np.nan
-    else:
-        result = calc_EstFa_fromAdm(pctgF_PO, Clobs_IV, Species=Species)
-    return result
-
-## ----------------------------- hERG -------------------------------------
-def calc_mean(value_list):
-    value_list_clean = []
-    for v in value_list:
-        if v not in [None, np.nan, '', ' ']:
-            try:
-                v_num = float(v)
-            except Exception as e:
-                print(f'\tError, cannot numericalize value {v}', e)
-            else:
-                value_list_clean.append(v_num)
-    return np.mean(value_list_clean)
-
-def calc_eIC50_hERG_from_cmt(comments_str):
-    # e.g., comments_str = '21.38% inhibition @ 10 ?M' or '11.17 inhibition @ 3 ?M'
-    try:
-        [str_inhb, str_conc] = comments_str.split('@')
-
-        if '%' in str_inhb:
-            inhb = str_inhb.split('%')[0]
-        elif 'inhibit' in str_inhb:
-            inhb = str_inhb.split('inhibit')[0]
-        else:
-            inhb = 'N/A'
-        
-        try:
-            inhb = float(inhb)
-        except:
-            eIC50 = None
-        else:
-            inhb = 0.1 if inhb < 0 else (99.99 if inhb > 100 else inhb)
-            conc = float(str_conc.split('M')[0][:-1])
-            eIC50 = conc*(100-inhb)/inhb
-            
-    except Exception as e:
-        eIC50 = None
-        if comments_str not in [' ', '/']:
-            print(f'\tError, cannot calc hERG eIC50 from comment data. {comments_str}')
-    return eIC50
-
-def calc_hERG_eIC50(row, col_hERG_cmts):
-    if col_hERG_cmts in row:
-        if row.notna()[col_hERG_cmts]:
-            hERG_eIC50_list = []
-            for cmnt in row[col_hERG_cmts].split(';'):
-                this_eIC50 = calc_eIC50_hERG_from_cmt(cmnt)
-                hERG_eIC50_list.append(this_eIC50)
-            result = calc_mean(hERG_eIC50_list)
-        else:
-            result = np.nan
-            # print(f"\tNo data in this row for column <{col_hERG_cmts}>")
-    else:
-        result = np.nan
-        print(f"\tColumn <{col_hERG_cmts}> is not in the Table")
-    return result
-
-def calc_hERG_mIC50(row, col_hERG_IC50, col_hERG_eIC50):
-    if row.notna()[col_hERG_IC50]:
-        result = row[col_hERG_IC50]
-    elif row.notna()[col_hERG_eIC50]:
-        result = row[col_hERG_eIC50]
-    else:
-        result = np.nan
-    return result
-
 ################################################################################################
-def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_folder="./tmp"):
+def Step_2_clean_data(dataTable, colName_prop_list, colName_mid, colName_smi, tmp_folder="./tmp"):
     ## count time
     beginTime = time.time()
     print(f"2. Cleaning data ...")
@@ -299,39 +187,12 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
     dataTable = dataTable.dropna(subset=[colName_mid, colName_smi]).reset_index(drop=True)
     print(f'\tThere are total <{dataTable.shape[0]}> molecules with valid SMILES<{colName_smi}>')
 
-    ## ------------------------------------------------------------------
-    for prop in dict_prop_cols:
-        passCheck = CheckThePropertyDataStats(dataTable, col_prop_prefix=dict_prop_cols[prop], propName=prop)
-        if passCheck:
-            dataTable[prop] = dataTable.apply(lambda row: clean_up_prop_data(row, col_prop_prefix=dict_prop_cols[prop], propName=prop), axis=1)
-
-        ## remove the 'elacridar' records
-        if prop == 'Bioavailability':
-            print(f"\t    The num rows with cleaned <{prop}> data (raw) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
-            dataTable[prop] = dataTable.apply(lambda row: rm_elacridar_records(row, col_perctgF=prop, col_vehicle='ADME PK;Concat;Vehicle'), axis=1)
-            print(f"\t    The num rows with cleaned <{prop}> data (no elacridar) is:", str(dataTable[dataTable[prop].notna()].shape[0]))
-
-        ## calc estFa
-        if prop == 'estFa':
-            dataTable[prop] = dataTable.apply(lambda row: calc_EstFa(row, 'Bioavailability', 'Cl_obs', Species='Rat'), axis=1)
-
-        ## calc hERG eIC50
-        if prop == 'hERG_eIC50':
-            dataTable[prop] = dataTable.apply(lambda row: calc_hERG_eIC50(row, dict_prop_cols[prop]), axis=1)
-        
-        if prop == 'hERG_mixedIC50':
-            dataTable[prop] = dataTable.apply(lambda row: calc_hERG_mIC50(row, 'hERG_IC50', 'hERG_eIC50'), axis=1)
-
-        ## rename MW
-        if prop == 'MW':
-            dataTable[prop] = dataTable[dict_prop_cols[prop]].apply(lambda x: x)
-
-        ## report
-        print(f"\t    The num rows with cleaned <{prop}> data is:", str(dataTable[dataTable[prop].notna()].shape[0]))
+    ## ------------------------- add molecular weight ------------------
+    dataTable_4_mmp['MW'] = dataTable_4_mmp[colName_smi].apply(_calc_mw_rdkit)
 
     ## ------------------------------------------------------------------
-    colNames_basic = [colName_mid, colName_smi]
-    colName_props = list(dict_prop_cols.keys())
+    colNames_basic = [colName_mid, colName_smi, 'MW']
+    colName_props = colName_prop_list
     dataTable_4_mmp = dataTable[colNames_basic + colName_props]
 
     dateToday = datetime.datetime.today().strftime('%Y%b%d')
@@ -415,13 +276,12 @@ def _run_cmd(commandLine):
     return (output, error)
 
 ################################################################################################
-def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results', symmetric=False):
+def Step_3_mmp_analysis(dataTable, colName_prop_list, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results', symmetric=False):
     ## count time
     beginTime = time.time()
     print(f"3. Preparing SMILES file and property CSV file for MMPs-DB analysis...")
 
     ## ----------- prepare the Smiles file and property file -----------
-    colName_prop_list = list(dict_prop_cols)
     file_smi, file_prop_csv, data_dict_molID = _prep_smi_file(dataTable, colName_prop_list, colName_mid, colName_smi, output_folder)
 
     ## -------------------- fragmentation SMILES -----------------------------
@@ -529,20 +389,229 @@ def Step_4_extract_data_from_DB(file_mmpdb, tmp_folder):
 ##############################################################################################
 ############################### cleanning the data from database #############################
 ##############################################################################################
+def _findPropValue(dbTable_propValue, cid, prop_id, average=False):
+    cond_1 = (dbTable_propValue["compound_id"]==cid)
+    cond_2 = (dbTable_propValue["property_name_id"]==prop_id)
+    
+    match_data = dbTable_propValue[cond_1 & cond_2]["value"].values
+
+    if match_data.shape[0] <= 0:
+        result = np.nan
+    else:
+        if average:
+            if match_data.shape[0] > 1:
+                print(f"\t\tWarning! Compound {cid} has multiple <{prop_id}> values\n")
+                result = np.meam(match_data)
+            else:
+                result = match_data[0]
+        else:
+            result = np.array2string(match_data, separator=',')
+    return result
+
 ## ------------------------------------------------------------------------------------------------------
+def __SelectTheConstant(pair_detail, dbTable_constSmi, sele_rule="max"):
+    const_id_sele = list(pair_detail.keys())[0]
+    const_mw_sele, const_smi_sele = -1, np.nan
+    sele_rule = "max"    ## ["max", "min"]
+
+    for const_id in pair_detail:
+        try:
+            const_smi = dbTable_constSmi[dbTable_constSmi['id']==const_id]['smiles'].values[0]
+            const_mol = Chem.MolFromSmiles(const_smi)
+            const_mw = Descriptors.MolWt(const_mol)
+        except Exception as e:
+            print(f"\tError when getting the MW of const id <{const_id}>; Error msgL {e}")
+            const_mw = np.nan
+        else:
+            if sele_rule == "max":
+                if const_mw_sele < const_mw:
+                    const_id_sele, const_mw_sele, const_smi_sele = const_id, const_mw, const_smi
+            elif sele_rule == "min":
+                if const_mw_sele > 0 and const_mw_sele > const_mw:
+                    const_id_sele, const_mw_sele, const_smi_sele = const_id, const_mw, const_smi
+            else:
+                print(f"<sele_rule> should be either max or min")
+    return const_id_sele, const_smi_sele
+
 ## ------------------------------------------------------------------------------------------------------
+def __SelectTheRuleEnv(rule_env_id_list, dbTable_rule, dbTable_ruleSmi, dbTable_ruleEnv, radius=0):
+    from_smiles, to_smiles = np.nan, np.nan
+
+    dbTable_ruleEnv_rs = dbTable_ruleEnv[dbTable_ruleEnv['radius']==radius]
+    for rule_env_id in rule_env_id_list:
+        ## find rule env
+        if rule_env_id not in dbTable_ruleEnv_rs['id'].to_list():
+            continue
+        row_rule_env = dbTable_ruleEnv_rs[dbTable_ruleEnv_rs['id']==rule_env_id]
+        
+        ## find rule
+        rule_id = row_rule_env['rule_id'].values[0]
+        if rule_id not in dbTable_rule['id'].to_list():
+            continue
+        row_rule = dbTable_rule[dbTable_rule['id']==rule_id]
+
+        ## find from smi
+        from_smiles_id = row_rule['from_smiles_id'].values[0]
+        row_from_smi = dbTable_ruleSmi[dbTable_ruleSmi['id']==from_smiles_id]
+        from_smiles = row_from_smi['smiles'].values[0]
+        # from_smiles_nh = row_from_smi['num_heavies'].values[0]
+
+        ## find to smi
+        to_smiles_id = row_rule['to_smiles_id'].values[0]    
+        row_to_smi = dbTable_ruleSmi[dbTable_ruleSmi['id']==to_smiles_id]
+        to_smiles = row_to_smi['smiles'].values[0]
+        # to_smiles_nh = row_to_smi['num_heavies'].values[0]
+
+        break
+    return from_smiles, to_smiles
+
 ## ------------------------------------------------------------------------------------------------------
+def _findTranSmi(pair_detail, dataDict_tables, sele_rule="max", radius=0):
+    ## get the individual database Tables
+    dbTable_constSmi = dataDict_tables["constant_smiles"]
+    dbTable_ruleEnv = dataDict_tables["rule_environment"]
+    dbTable_rule = dataDict_tables["rule"]
+    dbTable_ruleSmi = dataDict_tables["rule_smiles"]
+
+    const_id_sele, const_smi_sele = __SelectTheConstant(pair_detail, dbTable_constSmi, sele_rule=sele_rule)
+    rule_env_id_list = pair_detail[const_id_sele]
+    # radius = 0    # [0, 1, 2, 3, 4, 5]
+    from_smiles, to_smiles = __SelectTheRuleEnv(rule_env_id_list, dbTable_rule, dbTable_ruleSmi, dbTable_ruleEnv, radius=radius)
+    return const_smi_sele, from_smiles, to_smiles
 
 ################################################################################################
 def Step_5_MMPs_DataClean(dataDict_tables, add_symetric=True):
     ## count time
     beginTime = time.time()
     print(f"5. Now clean up the MMPs data ...")
-
+    
     ## ------------------------------------------------------------------
+    ## get the individual database Tables
+    dataTable_pair = dataDict_tables["pair"]
+    dbTable_cmpd = dataDict_tables["compound"]
+    dbTable_propName = dataDict_tables["property_name"]
+    dbTable_propValue = dataDict_tables["compound_property"]
+
     ## ------------- build the dataDict of pairs -------------
     print(f"\tNow start cleanning up the dataDict of pairs ...\n")
     dataDict = {}
+    for idx in dataTable_pair.index:
+        pair_idx = dataTable_pair['id'][idx]
+        cid_1 = int(dataTable_pair['compound1_id'][idx])
+        cid_2 = int(dataTable_pair['compound2_id'][idx])
+        const_id = dataTable_pair['constant_id'][idx]
+        rule_env_id = dataTable_pair['rule_environment_id'][idx]
+
+        ## initialize the sub-dict
+        pair_info = f"{cid_1}==>{cid_2}"
+        try:
+            pair_list = sorted([cid_1, cid_2], reverse=False)
+        except Exception as e:
+            pass    
+        
+        if pair_info not in dataDict:
+            ## add pair basic info
+            dataDict[pair_info] = {}
+            dataDict[pair_info]["pair_info"] = pair_info
+            dataDict[pair_info]["pair_id"] = f"({min([cid_1, cid_2])},{max([cid_1, cid_2])})"
+            dataDict[pair_info]["compound1_id"] = cid_1
+            dataDict[pair_info]["compound2_id"] = cid_2
+            dataDict[pair_info]["pair_detail"] = {}
+
+            ## add compound info
+            dataDict[pair_info]["From_mol_id"] = dbTable_cmpd['public_id'][cid_1]
+            dataDict[pair_info]["To_mol_id"] = dbTable_cmpd['public_id'][cid_2]
+            smi_1, smi_2 = dbTable_cmpd['input_smiles'][cid_1], dbTable_cmpd['input_smiles'][cid_2]
+            dataDict[pair_info]["From_Structure"] = smi_1
+            dataDict[pair_info]["To_Structure"] = smi_2
+            
+            ## add shared structure
+            # dataDict[pair_info]["SharedSubstructure"] = fun_tbd(smi_1, smi_2)
+
+            ## add compound prop info
+            for prop_id in dbTable_propName.index:
+                prop_name = dbTable_propName['name'][prop_id]
+                dataDict[pair_info][f"From_{prop_name}"] = _findPropValue(dbTable_propValue, cid_1, prop_id, average=True)
+                dataDict[pair_info][f"To_{prop_name}"] = _findPropValue(dbTable_propValue, cid_2, prop_id, average=True)
+                ## add delta value change
+                try:
+                    delta_value = dataDict[pair_info][f"To_{prop_name}"] - dataDict[pair_info][f"From_{prop_name}"]
+                except Exception as e:
+                    delta_value = np.nan
+                    
+                dataDict[pair_info][f"Delta_{prop_name}"] = delta_value
+
+        ## add pair details information (constant part)
+        if const_id not in dataDict[pair_info]["pair_detail"]:
+            dataDict[pair_info]["pair_detail"][const_id] = []
+        
+        ## add pair details information (rule_env)
+        if rule_env_id not in dataDict[pair_info]["pair_detail"][const_id]:
+            dataDict[pair_info]["pair_detail"][const_id].append(rule_env_id)
+    print(f"\t\tOriginal num_pairs in dataDict: {len(dataDict)}\n")
+    
+    ## ------------- add the symetric pairs if not exist -------------
+    tran_smi = True
+    radius = 0    # [0, 1, 2, 3, 4, 5]
+    sele_rule = "max"    # ["max", "min"]
+    if tran_smi:
+        for pair_info in dataDict:
+            pair_detail = dataDict[pair_info]["pair_detail"]
+            const_smi_sele, from_smiles, to_smiles = _findTranSmi(pair_detail, dataDict_tables, sele_rule=sele_rule, radius=radius)
+            dataDict[pair_info]["constant_smiles"] = const_smi_sele
+            dataDict[pair_info]["from_smiles"] = from_smiles
+            dataDict[pair_info]["to_smiles"] = to_smiles
+        
+    ## ------------- add the symetric pairs if not exist -------------
+    if add_symetric:
+        print(f"\t\tNow adding symetric pairs ...")
+        list_pair_info_4loop = copy.deepcopy(list(dataDict.keys()))
+        list_pair_info_4check = copy.deepcopy(list(dataDict.keys()))
+        for pair_info in list_pair_info_4loop:
+            if pair_info in list_pair_info_4check:
+                list_pair_info_4check.remove(pair_info)
+
+                ## reverse pair
+                cid_1, cid_2 = pair_info.split("==>")
+                pair_info_revs = f"{cid_2}==>{cid_1}"
+                if pair_info_revs in list_pair_info_4check:
+                    list_pair_info_4check.remove(pair_info_revs)
+                else:
+                    ## if reversed pair not in check list, add it in the dict
+                    dataDict[pair_info_revs] = {}
+                    dataDict[pair_info_revs]["pair_info"] = pair_info_revs
+                    dataDict[pair_info_revs]["pair_id"] = dataDict[pair_info]["pair_id"]
+                    dataDict[pair_info_revs]["constant_smiles"] = dataDict[pair_info]["constant_smiles"]
+                    dataDict[pair_info_revs]["pair_detail"] = {key: [] for key in dataDict[pair_info]["pair_detail"]}
+
+                    dataDict[pair_info_revs]["From_mol_id"] = dataDict[pair_info]["To_mol_id"]
+                    dataDict[pair_info_revs]["To_mol_id"] = dataDict[pair_info]["From_mol_id"]
+                    dataDict[pair_info_revs]["From_Structure"] = dataDict[pair_info]["To_Structure"]
+                    dataDict[pair_info_revs]["from_smiles"] = dataDict[pair_info]["to_smiles"]
+                    dataDict[pair_info_revs]["to_smiles"] = dataDict[pair_info]["from_smiles"]
+                    
+                    for tmp_key in dataDict[pair_info]:
+                        if tmp_key[0:6] == 'Delta_':
+                            try:
+                                delta_symetric = dataDict[pair_info][tmp_key] * -1
+                            except Exception as e:
+                                delta_symetric = np.nan
+                            dataDict[pair_info_revs][tmp_key] = delta_symetric
+
+                        elif tmp_key[0:5] == 'From_':
+                            tmp_key_reverse = 'To_' + tmp_key[5:]
+                            dataDict[pair_info_revs][tmp_key_reverse] = dataDict[pair_info][tmp_key]
+                        
+                        elif tmp_key[0:3] == "To_":
+                            tmp_key_reverse = 'From_' + tmp_key[3:]
+                            dataDict[pair_info_revs][tmp_key_reverse] = dataDict[pair_info][tmp_key]
+                        else:
+                            pass
+            else:
+                ## this pair was removed from check list because it's the revs pair of another pair
+                pass
+        print(f"\t\tNew num_pairs in symetric dataDict: {len(dataDict)}")
+    
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
     print(f"==> Step 5 <Final data clean> complete, costs time = %ds ................\n" % (costTime))
@@ -557,6 +626,35 @@ def Step_6_MMPs_dataClean(dataDict, colName_prop_list, data_dict_molID, fileName
     print(f"6. Now export a table of pairs ...")
     ## ------------------------------------------------------------------
     dataTable = pd.DataFrame.from_dict(dataDict).T
+
+    ## ----------- add the  -----------
+    dataTable['Num_Counts'] = dataTable['pair_detail'].apply(lambda x: len(x))
+    dataTable = dataTable.sort_values(by=["pair_id", "pair_info"], ascending=[True, True]).reset_index(drop=True)
+
+    ## ----------- add the number of cuts -----------
+    dataTable['Num_cuts'] = dataTable['constant_smiles'].apply(lambda x: len(x.split('.')))
+
+    ## ----------- re-arrange the columns -----------
+    col_bioassay = []
+    for x in colName_prop_list:
+        col_bioassay.append(f"From_{x}")
+        col_bioassay.append(f"To_{x}")
+        col_bioassay.append(f"Delta_{x}")
+
+    col_basic = ['From_mol_id', 'To_mol_id', 'From_Structure', 'To_Structure', 
+                 'from_smiles', 'to_smiles', 'constant_smiles', 'Num_cuts']
+    col_pairinfo = ['pair_detail']    #, 'pair_info', 'pair_id', 'Num_Counts'
+    dataTable = dataTable[col_basic + col_bioassay + col_pairinfo]
+    # dataTable = dataTable.drop(columns=["mw_ying_from_value", "mw_ying_to_value"])
+    # print(dataTable.columns)
+
+    ## ----------- mapping mol id -----------
+    dataTable['From_mol_id'] = dataTable['From_mol_id'].apply(lambda x: data_dict_molID[x] if x in data_dict_molID else x)
+    dataTable['To_mol_id'] = dataTable['To_mol_id'].apply(lambda x: data_dict_molID[x] if x in data_dict_molID else x)
+
+    ## ----------- exporting -----------
+    dataTable.to_csv(f"{fileName_out}", index=False)
+
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
     print(f"==> Step 6 <mmp data export> complete, output saved to {fileName_out}, costs time = %ds ................\n" % (costTime))
@@ -571,7 +669,7 @@ def main():
 
     if True:
         ## ----------- input -----------
-        my_query_id = args.q    # 3539
+        # my_query_id = args.q    # 3539
         fileName_in = args.i
         sep = args.d
 
@@ -582,52 +680,47 @@ def main():
         # colName_proj = args.colName_prj    # 'Concat;Project'
 
         ## ----------- props -----------
+        colNames_activity = args.colName_assay
         # ## Reading JSON data from a file
-        prop_dict_file = args.prop_dict_file
-        print(prop_dict_file)
-        with open(prop_dict_file, 'r') as infile:
-            dict_prop_cols = json.load(infile)
-        '''
-        dict_prop_cols = {
-            'Permeability': 'ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);', 
-            'Efflux': 'ADME MDCK (MDR1) efflux;Mean;Efflux Ratio;', 
-            'Bioavailability': 'ADME PK;Mean;F %;Dose: 10.000 (mg/kg);Route of Administration: PO;Species: Rat;', 
-            'Cl_obs': 'Copy 1 ;ADME PK;Mean;Cl_obs(mL/min/kg);Dose: 2.000 (mg/kg);Route of Administration: IV;Species: Rat;',
-            'hERG_IC50': 'ADME Tox-manual patch hERG 34C;GMean;m-patch hERG IC50 [uM];',
-            'hERG_eIC50': 'ADME Tox-manual patch hERG 34C;Concat;Comments',
-            'hERG_mixedIC50': 'Not Availale',
-            'estFa': 'Not Availale',
-            'MW': 'Molecular Weight',
-            'bpKa1': 'in Silico PhysChem Property;Mean;Corr_ChemAxon_bpKa1;',
-            'logD': 'in Silico PhysChem Property;Mean;Kymera ClogD (v1);', 
-            }    
-        '''
+        # prop_dict_file = args.prop_dict_file
+        # print(prop_dict_file)
+        # with open(prop_dict_file, 'r') as infile:
+        #     dict_prop_cols = json.load(infile)        
         ## ----------- output -----------
+        fileName_out = str(args.output)
+        if fileName_out[-4:] != '.csv':
+            fileName_out = fileName_out + ".csv"
 
         ## ----------- create folders -----------
-        folderName_tmp = f"./tmp"
+        folderName_tmp = args.tmpFolder
         tmp_folder = _folderChecker(folderName_tmp)
         output_folder = _folderChecker(f"./results")
-    
+
     ## ============================ run the code ============================
-    #### Step-1. download & load data from D360
-    dataTable_raw = Step_1_load_data(my_query_id, fileName_in, tmp_folder)
+    #### Step-1. Load the raw data from csv file
+    dataTable_raw, colName_prop_list = Step_1_load_data(fileName_in, colName_mid, colName_smi, colNames_activity, sep=sep)
 
     ## ------------------------------------------------------------------
     #### Step-2. clean up dataTable
-    dataTable_4_mmp = Step_2_clean_data(dataTable_raw, dict_prop_cols, colName_mid, colName_smi, tmp_folder)
+    dataTable_4mmp = Step_2_clean_data(dataTable_raw, colName_prop_list, colName_mid, colName_smi, tmp_folder="./tmp")
 
     ## ------------------------------------------------------------------
     #### Step-3. MMPs analysis
-    file_mmpdb, data_dict_molID = Step_3_mmp_analysis(dataTable_4_mmp, dict_prop_cols, colName_mid, colName_smi, output_folder, symmetric=True)
+    file_mmpdb, data_dict_molID = Step_3_mmp_analysis(dataTable_4mmp, colName_prop_list, colName_mid, colName_smi, output_folder, symmetric=True)
 
     ## ------------------------------------------------------------------
     #### Step-4. Extracing all tables from database file
+    dataDict_tables = Step_4_extract_data_from_DB(file_mmpdb, tmp_folder)
+
     ## ------------------------------------------------------------------
     #### Step-5. Clean up the MMPs data from the DB
+    dataDict = Step_5_MMPs_DataClean(dataDict_tables, add_symetric=True)
 
     ## ------------------------------------------------------------------
     #### Step-6. save the results
+    dataTable_out = Step_6_MMPs_dataClean(dataDict, colName_prop_list, data_dict_molID, fileName_out)
 
 if __name__ == '__main__':
     main()
+
+

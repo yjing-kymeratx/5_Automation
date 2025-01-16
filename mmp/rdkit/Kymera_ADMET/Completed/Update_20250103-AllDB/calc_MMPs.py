@@ -1,5 +1,5 @@
 # !/fsx/home/yjing/apps/anaconda3/env/yjing/bin python
-
+# calc_MMPs.py
 ##############################################################################################
 ##################################### load packages ###########################################
 ##############################################################################################
@@ -12,54 +12,74 @@ import datetime
 
 import json
 import shutil
-import chardet
 import argparse
 import subprocess
 
 import numpy as np
 import pandas as pd
 
-from rdkit import Chem
-from rdkit import RDLogger
+from rdkit import Chem, RDLogger
 RDLogger.DisableLog('rdApp.*')
 
 from d360api import d360api
 
 # dateToday = datetime.datetime.today().strftime('%Y%b%d')
 
-## =====================================================================================   
-## =================================== load argparses ==================================
-## =====================================================================================
-def Step_0_load_args():
-    parser = argparse.ArgumentParser(description='Usage ot cxcalc_runner.py, details to be added later')
-    parser.add_argument('-q', action="store", type=int, default=None, help='D360 Query ID')
-    parser.add_argument('-i', action="store", default=None, help='The input file downloaded from D360')
-    parser.add_argument('--colName_cid', action="store", default="Compound Name", help='The column name of mol KT ID')
-    parser.add_argument('--colName_smi', action="store", default="Structure", help='The column name of SMILES')
-    parser.add_argument('--colName_eid', action="store", default="External ID", help='The column name of external ID')
-    parser.add_argument('--colName_prj', action="store", default="Concat;Project", help='The column name of Projects')
-    parser.add_argument('--prop_dict_file', action="store", default="prop_cols_matches.json", help='The json file which specify the property of interest and the columns infomation')
+##############################################################################################
+##################################### Custom Tools ###########################################
+##############################################################################################
+def _folderChecker(my_folder='./my_folder'):
+    ## ------- simply clean up the folder path -------
+    if my_folder is None:
+        my_folder='./tmp'
+    elif '/' not in my_folder:
+        my_folder = os.path.join(os.getcwd(), my_folder)
 
-    args = parser.parse_args()
-
-    return args
-
-##--------------------------------------------------------------
-def folderChecker(my_folder='./my_folder'):
-    # Check if the folder exists
+    ## ------- Check if the folder exists -------
     check_folder = os.path.isdir(my_folder)
     # os.path.exists(dir_outputs)
     # If the folder does not exist, create it
     if not check_folder:
         os.makedirs(my_folder)
-        print(f"\tCreated folder:", my_folder)
+        print(f"\tCreated folder: {my_folder}")
     else:
         print(f'\t{my_folder} is existing')
     return my_folder
 
-################################################################################################
-############################ Step-1. download & load data from D360 ############################
-################################################################################################
+## ------------------- Custom Tools --------------------------
+def _determine_encoding(dataFile):
+    import chardet
+
+    # Step 1: Open the CSV file in binary mode
+    with open(dataFile, 'rb') as f:
+        data = f.read()
+
+    # Step 2: Detect the encoding using the chardet library
+    encoding_result = chardet.detect(data)
+
+    # Step 3: Retrieve the encoding information
+    encoding = encoding_result['encoding']
+
+    # Step 4: Print/export the detected encoding information
+    # print("Detected Encoding:", encoding)
+    return encoding
+
+## ------------------------------------------------------------------
+def _cleanUpSmiles(smi):
+    ## text processing
+    if "|" in smi:
+        smi = smi.split("|")[0]
+    smi = smi.replace("\n", "").replace("\r", "").replace("\r\n", "")
+
+    ## rdkit smiles vadality checking
+    try:
+        mol = Chem.MolFromSmiles(smi)
+        smi_rdkit = Chem.MolToSmiles(mol)
+    except:
+        smi_rdkit = np.nan
+    return smi_rdkit
+
+## ------------------------------------------------------------------
 def dataDownload(my_query_id=3539, user_name="yjing@kymeratx.com", tokenFile='yjing_D360.token'):
     # Create API connection to the PROD server
     my_d360 = d360api(provider="https://10.3.20.47:8080")  # PROD environment
@@ -74,29 +94,43 @@ def dataDownload(my_query_id=3539, user_name="yjing@kymeratx.com", tokenFile='yj
     my_d360.authenticate_servicetoken(servicetoken=service_token, user=user_name)
     results = my_d360.download_query_results(query_id=my_query_id)
     return results
+########################################################################
+############################# Step-0. load argparses ###########################
+########################################################################
+def Step_0_load_args():
+    print(f"==> Step 0: load the parameters ... ")
+    ## 
+    parser = argparse.ArgumentParser(description='This is the script to identify the MMPs from existing tables')
+    ## input
+    parser.add_argument('-q', action="store", type=int, default=None, help='D360 Query ID')
+    parser.add_argument('-i', action="store", default=None, help='The input csv file for identify the MMPs')
+    parser.add_argument('-d', action="store", default=',', help='The delimiter of input csv file for separate columns')
 
-##--------------------------------------------------------------
-def determine_encoding(dataFile):
-    # Step 1: Open the CSV file in binary mode
-    with open(dataFile, 'rb') as f:
-        data = f.read()
-    
-    # Step 2: Detect the encoding using the chardet library
-    encoding_result = chardet.detect(data)
+    ## data cols in the input
+    parser.add_argument('--colName_cid', action="store", default='Compound Name', help='The column name of the compound identifier')
+    parser.add_argument('--colName_smi', action="store", default='Structure', help='The column name of SMILES')
+    parser.add_argument('--colName_eid', action="store", default="External ID", help='The column name of external ID')
+    parser.add_argument('--colName_prj', action="store", default="Concat;Project", help='The column name of Projects')
 
-    # Step 3: Retrieve the encoding information
-    encoding = encoding_result['encoding']
+    parser.add_argument('--prop_dict_file', action="store", default="prop_cols_matches.json", help='The json file which specify the property of interest and the columns infomation')
 
-    # Step 4: Print/export the detected encoding information
-    # print("Detected Encoding:", encoding)
-    return encoding
+    parser.add_argument('-o', '--output', action="store", default="MMPs_results", help='The name of output csv file to save the MMPs data')
+    parser.add_argument('--tmpFolder', action="store", default='./tmp', help='The tmp folder')
 
-################################################################################################
-def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
+    ## parse the arguments
+    args = parser.parse_args()
+
+    return args
+
+
+##############################################################################################
+############################ Step-1. data collection & clean ############################
+##############################################################################################
+def Step_1_load_data(my_query_id=3539, fileName_in=None, tmp_folder="./tmp", sep=','):
     ## count time
     beginTime = time.time()
     ## ------------------------------------------------------------------
-    assert my_query_id is not None or dataFile is not None, f"\tError, both <my_query_id> and <dataFile> are None"
+    assert my_query_id is not None or fileName_in is not None, f"\tError, both <my_query_id> and <dataFile> are None"
     if my_query_id is not None:
         print(f"\tRun D360 query on ID {my_query_id}")
         ## download data from D360 using API
@@ -104,49 +138,36 @@ def Step_1_load_data(my_query_id=3539, dataFile=None, tmp_folder="./tmp"):
         print(f'\tAll data have been downloaded in file {dataTableFileName}')
 
         ## move the csv file to tmp folder
-        dataFile = f"{tmp_folder}/{dataTableFileName}"
-        shutil.move(dataTableFileName, dataFile)
-        print(f"\tMove the downloaded file {dataTableFileName} to {dataFile}")
+        fileName_in = f"{tmp_folder}/{dataTableFileName}"
+        shutil.move(dataTableFileName, fileName_in)
+        print(f"\tMove the downloaded file {dataTableFileName} to {fileName_in}")
     else:
-        print(f"\tDirectly loading data from {dataFile}")
+        print(f"\tDirectly loading data from {fileName_in}")
+        assert os.path.exists(fileName_in), f"File {fileName_in} does not exist"
 
     try:
         ## determine encoding type
-        # encoding = determine_encoding(dataFile)
-        encoding = 'ISO-8859-1'
+        encoding = _determine_encoding(fileName_in)
+        # encoding = 'ISO-8859-1'
         ## read csv file
-        print(f"\tNow reading csv data using <{encoding}> encoding from {dataFile}")
-        dataTable = pd.read_csv(dataFile, encoding=encoding).reset_index(drop=True)
+        print(f"\tNow reading csv data using <{encoding}> encoding from {fileName_in}")
+        dataTable = pd.read_csv(fileName_in, sep=sep, encoding=encoding).reset_index(drop=True)
     except Exception as e:
-        print(f'\tError: cannot read output file {dataFile}; error msg: {e}')
+        print(f'\tError: cannot read output file {fileName_in}; error msg: {e}')
         dataTable = None
     else:
         print(f"\tThe loaded raw data has <{dataTable.shape[0]}> rows and {dataTable.shape[1]} columns")
+
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"==> The step 1 costs time = %ds ................" % (costTime))
-    
-    return dataTable  
+    print(f"==> Step 1 <Loading csv data> complete, costs time = %ds ................\n" % (costTime))
+
+    return dataTable
 
 ################################################################################################
 ###################### Step-2. clean up data and calculate property ############################
 ################################################################################################
-## ------------------------------------------------------------------
-def _cleanUpSmiles(smi):
-    try:
-        ## text processing
-        if "|" in smi:
-            smi = smi.split("|")[0]
-        smi = smi.replace("\n", "").replace("\r", "").replace("\r\n", "")
 
-        ## rdkit checking
-        mol = Chem.MolFromSmiles(smi)
-        smi_rdkit = Chem.MolToSmiles(mol)
-    except:
-        smi_rdkit = np.nan
-    return smi_rdkit
-
-## ------------------------------------------------------------------
 def CheckThePropertyDataStats(dataTable, col_prop_prefix, propName):
     col_mod, col_num = f"{col_prop_prefix}(Mod)", f"{col_prop_prefix}(Num)"
     if (col_mod in dataTable) and (col_num in dataTable):
@@ -268,10 +289,13 @@ def calc_hERG_mIC50(row, col_hERG_IC50, col_hERG_eIC50):
 def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_folder="./tmp"):
     ## count time
     beginTime = time.time()
+    print(f"2. Cleaning data ...")
     ## ------------------------------------------------------------------
     print(f'\tChecking the vadality of the SMILES using RDKit ...')
     dataTable[f"{colName_smi}_raw"] = dataTable[colName_smi].apply(lambda x: x)
     dataTable[colName_smi] = dataTable[colName_smi].apply(_cleanUpSmiles)
+
+    ## ------------------------- remove invalid smiles -------------------------
     dataTable = dataTable.dropna(subset=[colName_mid, colName_smi]).reset_index(drop=True)
     print(f'\tThere are total <{dataTable.shape[0]}> molecules with valid SMILES<{colName_smi}>')
 
@@ -304,7 +328,7 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
 
         ## report
         print(f"\t    The num rows with cleaned <{prop}> data is:", str(dataTable[dataTable[prop].notna()].shape[0]))
-    
+
     ## ------------------------------------------------------------------
     colNames_basic = [colName_mid, colName_smi]
     colName_props = list(dict_prop_cols.keys())
@@ -312,42 +336,47 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
 
     dateToday = datetime.datetime.today().strftime('%Y%b%d')
     dataTable_4_mmp.to_csv(f'{tmp_folder}/Data_4_MMP_{dateToday}.csv', index=False)
-    print(f'\tThe cleaned dataTable have data shape {dataTable_4_mmp.shape}')
+    print(f'\tThe prepared clean dataTable 4 FindMMPs have data shape {dataTable_4_mmp.shape}')
 
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"==> The step 2 costs time = %ds ................" % (costTime))
-    return dataTable_4_mmp 
+    print(f"==> Step 2 <data clean> complete, costs time = %ds ................\n" % (costTime))
+    ## ------------------------------------------------------------------
+    return dataTable_4_mmp
 
-################################################################################################
-################################### Step-3. MMPs analysis ######################################
-################################################################################################
-## ---------------- prepare the Smiles file and property file ----------------
-def prep_smi_file(dataTable, colName_prop_list, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results'):
-    print(f"\tNow starting preparing the SMILES file and property CSV file for mmpdb ...")
-    
+##############################################################################################
+################################## Step-3 Run mmpdb analysis ######################################
+##############################################################################################
+## ---------------- prepare .smi and csv for MMPs analysis ----------------
+def _prep_smi_file(dataTable, colName_prop_list, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results'):
+    ## count time
+    print(f"\tNow preparing SMILES file and property CSV file for MMPs-DB analysis...")
+    ## ------------------------------------------------------------------
     ## the SMILES file for fragmentation
     file_smi = f'{output_folder}/Compounds_All.smi'
     file_prop_csv = f'{output_folder}/Property_All.csv'
-    delimiter=' '
+    delimiter_smi, delimiter_csv = ' ',  f"\t"
     ##
-    data_dict_prop = {}
+    data_dict_prop, data_dict_molID = {}, {}
+    ## ----------------- write into .smi file directly -----------------
     with open(file_smi, "w") as output_file:
         # output_file.write(f'SMILES{delimiter_smi}ID' + "\n")
         for idx in dataTable.index:
             if idx % 1000 == 0:
-                print(f"\t\trow {idx}")    
+                print(f"\t\trow {idx}")
 
-            mol_id = dataTable[colName_mid][idx]
+            ## prepare the SMILES output (use row index to avoid the strange mol id from custom csv file)
+            mol_id = str(idx)    #  mol_id = dataTable[colName_mid][idx]    
             mol_smi = dataTable[colName_smi][idx]
 
             ## prepare the SMILES output
-            this_line = f'{mol_smi}{delimiter}{mol_id}'
+            this_line = f'{mol_smi}{delimiter_smi}{mol_id}'
             output_file.write(this_line + "\n")  # Add a newline character after each string
 
-            ## prepare the property CSV output as dict
+            ## ----------------- prepare the property CSV  as dict -----------------
             data_dict_prop[idx] = {}
             data_dict_prop[idx]['ID'] = mol_id
+            # data_dict_prop[idx]['idx_yjing'] = mol_id
 
             for prop_name in colName_prop_list:
                 try:
@@ -357,21 +386,24 @@ def prep_smi_file(dataTable, colName_prop_list, colName_mid='Compound Name', col
                         mol_prop = "*"
                 except Exception as e:
                     data_dict_prop[idx][prop_name] = "*"
-                    # print(f'\tThis mol {mol_id} does not have a proper property value: {e}')
+                    # print(f'\t---->Warning! This mol {mol_id} does not have a proper property value: {e}')
                 else:
                     data_dict_prop[idx][prop_name] = mol_prop
+            ## --------------------------------------------------------------------
+            ## prep molID dict for query molID using index in the future step
+            data_dict_molID[str(idx)] = dataTable[colName_mid][idx]    #.replace("\n", ";").strip()
+        print(f'\tThe SMILES strings have been saved into .smi file: {file_smi}')
         
-    print(f'\tThe SMILES strings have been saved into .smi file: {file_smi}')
-        
-    ## save the csv results
+    ## ----------------- save the csv results -----------------
     data_table_prop = pd.DataFrame.from_dict(data_dict_prop).T
-    data_table_prop.to_csv(file_prop_csv, index=False, sep=delimiter)
-    print(f'\tThe property data ({data_table_prop.shape}) have been saved into .csv file: {file_smi}')
+    data_table_prop.to_csv(file_prop_csv, index=False, sep=delimiter_csv)
+    print(f'\tThe property data ({data_table_prop.shape}) have been saved into .csv file: {file_prop_csv}')
     # data_table_prop.head(3)
-    return file_smi, file_prop_csv
-        
+
+    return file_smi, file_prop_csv, data_dict_molID
+
 ## ---------------- basic cmd run ----------------
-def run_cmd(commandLine):
+def _run_cmd(commandLine):
     # beginTime = time.time()
 
     # Use subprocess to execute the command
@@ -383,94 +415,219 @@ def run_cmd(commandLine):
     return (output, error)
 
 ################################################################################################
-def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results'):
+def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results', symmetric=False):
     ## count time
     beginTime = time.time()
-    ## ------------------------------------------------------------------    
-    ## prepare the Smiles file and property file
-    colName_prop_list = list(dict_prop_cols)
-    file_smi, file_prop_csv = prep_smi_file(dataTable, colName_prop_list, colName_mid, colName_smi, output_folder)
+    print(f"3. Preparing SMILES file and property CSV file for MMPs-DB analysis...")
 
-    ## ------------------------------------------------------------------
-    ## Fragment the SMILES
+    ## ----------- prepare the Smiles file and property file -----------
+    colName_prop_list = list(dict_prop_cols)
+    file_smi, file_prop_csv, data_dict_molID = _prep_smi_file(dataTable, colName_prop_list, colName_mid, colName_smi, output_folder)
+
+    ## -------------------- fragmentation SMILES -----------------------------
     file_fragdb = f'{output_folder}/Compounds_All.fragdb'
     commandLine_1 = ['mmpdb', 'fragment', file_smi, '-o', file_fragdb]
-    (output_1, error_1) = run_cmd(commandLine_1)
+    (output_1, error_1) = _run_cmd(commandLine_1)
     print(f'\tThe fragmentation is completed and saved into file {file_fragdb}')
 
-    ## ------------------------------------------------------------------
-    ## Indexing to find the MMPs in the fragment file & Load the activity/property data
+    ## ----------- Indexing to find the MMPs and load the activity data -----------
     file_mmpdb = f'{output_folder}/Compounds_All.mmpdb'
     commandLine_2 = ['mmpdb', 'index', file_fragdb, '-o', file_mmpdb, '--properties', file_prop_csv]
-    (output_2, error_2) = run_cmd(commandLine_2)
+
+    if symmetric:
+        commandLine_2.append('--symmetric')
+
+    (output_2, error_2) = _run_cmd(commandLine_2)
     print(f'\tThe indexing/mmp generation is completed and saved into file {file_mmpdb}')
 
     ## ------------------------------------------------------------------
     costTime = time.time()-beginTime
-    print(f"==> The step 3 costs time = %ds ................" % (costTime))
+    print(f"==> Step 3 <MMPDB analysis> complete, costs time = %ds ................\n" % (costTime))
+    return file_mmpdb, data_dict_molID
 
-    return file_mmpdb
+##############################################################################################
+############################### Loading data from database ###################################
+##############################################################################################
+def _call_my_query(db_file, my_query):
+    import sqlite3
+    
+    ## connect to the SQLIte database
+    my_connection = sqlite3.connect(db_file)
+
+    ## create a cursor object
+    my_cursor = my_connection.cursor()
+
+    ## excute the query
+    my_cursor.execute(my_query)
+
+    ## fetch all the rows
+    rows = my_cursor.fetchall()
+    
+    # ## export the results
+    # data_list = [row for row in rows]
+    my_connection.close()
+    return rows
+
+## ------------- extract table data from SQLite DB ------------- 
+def _extract_tables(db_file, table_name):
+    ## get header info
+    my_query_colName = f"PRAGMA table_info({table_name})"
+    column_details = _call_my_query(db_file, my_query_colName)
+    colName_list = [column[1] for column in column_details]
+
+    ## get data info
+    my_query_data = f"SELECT * FROM {table_name}"
+    data_rows = _call_my_query(db_file, my_query_data)
+    
+    return colName_list, data_rows
+
+def _write_2_csv(colName_list, data_rows, csv_file_name, delimiter=','):
+    import csv
+    with open(csv_file_name, 'w', newline='') as csvfh:
+        writer = csv.writer(csvfh)    # , delimiter=delimiter
+        ## --------- Write header ---------
+        writer.writerow(colName_list)
+
+        ## --------- Write data ---------
+        print(f"\tNow start writing the data into csv")
+        for i in range(0, len(data_rows)):
+            writer.writerow(list(data_rows[i]))
+            if i % 10**6 == 0:
+                print(f"\t\trow-{i}")
+    print(f"\tNow the table data were saved into <{csv_file_name}>")
+    return None
 
 ################################################################################################
-######################################## main ##################################################
-################################################################################################
-def main():
+def Step_4_extract_data_from_DB(file_mmpdb, tmp_folder):
+    ## count time
+    beginTime = time.time()
+    print(f"4. Now extracting tables from MMPs database ...")
     ## ------------------------------------------------------------------
-    print(f"==> Step 0: load the parameters ... ")
+    dataDict_csvFiles = {}
+    for table_name in ["pair", "compound", "compound_property", "property_name", "constant_smiles",
+                    "rule", "rule_smiles", "rule_environment", "rule_environment_statistics", "environment_fingerprint"]:
+        
+        print(f"\tNow processing the table <{table_name}>")
+        colName_list, data_rows = _extract_tables(file_mmpdb, table_name)       
+
+        ## --------- write output ---------
+        ## define folder and csv fileName
+        subFolderDB = _folderChecker(f"{tmp_folder}/DB_tables")
+        table_out = f"{subFolderDB}/DB_table_{table_name}.csv"
+        ## write 2 csv
+        _write_2_csv(colName_list, data_rows, table_out)
+
+        print(f"\t<{table_name}> table has been saved into {table_out}\n")
+        dataDict_csvFiles[table_name] = table_out
+        # print(table_name)
+
+    ## ------------------------------------------------------------------
+    costTime = time.time()-beginTime
+    print(f"==> Step 4 <Extracting data from MMPs DB> complete, costs time = %ds ................\n" % (costTime))    
+    return dataDict_csvFiles
+
+##############################################################################################
+############################### cleanning the data from database #############################
+##############################################################################################
+## ------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
+
+################################################################################################
+def Step_5_MMPs_DataClean(dataDict_tables, add_symetric=True):
+    ## count time
+    beginTime = time.time()
+    print(f"5. Now clean up the MMPs data ...")
+
+    ## ------------------------------------------------------------------
+    ## ------------- build the dataDict of pairs -------------
+    print(f"\tNow start cleanning up the dataDict of pairs ...\n")
+    dataDict = {}
+    ## ------------------------------------------------------------------
+    costTime = time.time()-beginTime
+    print(f"==> Step 5 <Final data clean> complete, costs time = %ds ................\n" % (costTime))
+    return dataDict
+
+##############################################################################################
+#################################### exporting the data ######################################
+##############################################################################################
+def Step_6_MMPs_dataClean(dataDict, colName_prop_list, data_dict_molID, fileName_out):
+    ## count time
+    beginTime = time.time()
+    print(f"6. Now export a table of pairs ...")
+    ## ------------------------------------------------------------------
+    dataTable = pd.DataFrame.from_dict(dataDict).T
+    ## ------------------------------------------------------------------
+    costTime = time.time()-beginTime
+    print(f"==> Step 6 <mmp data export> complete, output saved to {fileName_out}, costs time = %ds ................\n" % (costTime))
+    return dataTable
+
+##############################################################################################
+###################################### main function #########################################
+##############################################################################################
+def main():
+    ## =================== get parameters from arguments ==================== ##
     args = Step_0_load_args()
 
-    ## ------------------------------------------------------------------
-    my_query_id = args.q    # 3539
-    dataFile = args.i    # None
+    if True:
+        ## ----------- input -----------
+        my_query_id = args.q    # 3539
+        fileName_in = args.i
+        sep = args.d
 
-    colName_mid = args.colName_cid    # 'Compound Name'
-    colName_smi = args.colName_smi    # 'Structure' or 'Smiles'
-    # colName_proj = args.colName_prj    # 'Concat;Project'
-    # colName_eid = args.colName_eid    # 'Concat;External Id'
+        ## ----------- input cols -----------
+        colName_mid = args.colName_cid    # 'Compound Name'
+        colName_smi = args.colName_smi    # 'Structure' or 'Smiles'
+        # colName_eid = args.colName_eid    # 'Concat;External Id'
+        # colName_proj = args.colName_prj    # 'Concat;Project'
 
-    # Reading JSON data from a file
-    prop_dict_file = args.prop_dict_file
-    print(prop_dict_file)
-    with open(prop_dict_file, 'r') as infile:
-        dict_prop_cols = json.load(infile)
-    '''
-    dict_prop_cols = {
-        'Permeability': 'ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);', 
-        'Efflux': 'ADME MDCK (MDR1) efflux;Mean;Efflux Ratio;', 
-        'Bioavailability': 'ADME PK;Mean;F %;Dose: 10.000 (mg/kg);Route of Administration: PO;Species: Rat;', 
-        'Cl_obs': 'Copy 1 ;ADME PK;Mean;Cl_obs(mL/min/kg);Dose: 2.000 (mg/kg);Route of Administration: IV;Species: Rat;',
-        'hERG_IC50': 'ADME Tox-manual patch hERG 34C;GMean;m-patch hERG IC50 [uM];',
-        'hERG_eIC50': 'ADME Tox-manual patch hERG 34C;Concat;Comments',
-        'hERG_mixedIC50': 'Not Availale',
-        'estFa': 'Not Availale',
-        'MW': 'Molecular Weight',
-        'bpKa1': 'in Silico PhysChem Property;Mean;Corr_ChemAxon_bpKa1;',
-        'logD': 'in Silico PhysChem Property;Mean;Kymera ClogD (v1);', 
-        }    
-    '''
+        ## ----------- props -----------
+        # ## Reading JSON data from a file
+        prop_dict_file = args.prop_dict_file
+        print(prop_dict_file)
+        with open(prop_dict_file, 'r') as infile:
+            dict_prop_cols = json.load(infile)
+        '''
+        dict_prop_cols = {
+            'Permeability': 'ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);', 
+            'Efflux': 'ADME MDCK (MDR1) efflux;Mean;Efflux Ratio;', 
+            'Bioavailability': 'ADME PK;Mean;F %;Dose: 10.000 (mg/kg);Route of Administration: PO;Species: Rat;', 
+            'Cl_obs': 'Copy 1 ;ADME PK;Mean;Cl_obs(mL/min/kg);Dose: 2.000 (mg/kg);Route of Administration: IV;Species: Rat;',
+            'hERG_IC50': 'ADME Tox-manual patch hERG 34C;GMean;m-patch hERG IC50 [uM];',
+            'hERG_eIC50': 'ADME Tox-manual patch hERG 34C;Concat;Comments',
+            'hERG_mixedIC50': 'Not Availale',
+            'estFa': 'Not Availale',
+            'MW': 'Molecular Weight',
+            'bpKa1': 'in Silico PhysChem Property;Mean;Corr_ChemAxon_bpKa1;',
+            'logD': 'in Silico PhysChem Property;Mean;Kymera ClogD (v1);', 
+            }    
+        '''
+        ## ----------- output -----------
 
-    ## ------------------------------------------------------------------
-    ## create tmp folder
-    tmp_folder = folderChecker(f"./tmp")
-    output_folder = folderChecker(f"./results")
+        ## ----------- create folders -----------
+        folderName_tmp = f"./tmp"
+        tmp_folder = _folderChecker(folderName_tmp)
+        output_folder = _folderChecker(f"./results")
     
-    ## ------------------------------------------------------------------
+    ## ============================ run the code ============================
     #### Step-1. download & load data from D360
-    print(f"==> Step 1: download & load data from D360 ...")
-    dataTable = Step_1_load_data(my_query_id, dataFile, tmp_folder)
-    # dataTable = pd.read_csv(f"./tmp/D360_dataset_q_id3539_111224_0120.csv").reset_index(drop=True)
-    # dataTable.head(3)
+    dataTable_raw = Step_1_load_data(my_query_id, fileName_in, tmp_folder)
 
     ## ------------------------------------------------------------------
-    #### Step-2. clean up data and calculate property
-    print(f"==> Step 2: clean up data and calculate new property ...")
-    dataTable_4_mmp = Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_folder)
-    # dataTable_4_mmp.head(3)
-    
+    #### Step-2. clean up dataTable
+    dataTable_4_mmp = Step_2_clean_data(dataTable_raw, dict_prop_cols, colName_mid, colName_smi, tmp_folder)
+
     ## ------------------------------------------------------------------
     #### Step-3. MMPs analysis
-    print(f"==> Step 3: run MMP analysis using mmpdb ...")
-    file_mmpdb = Step_3_mmp_analysis(dataTable_4_mmp, dict_prop_cols, colName_mid, colName_smi, output_folder)
+    file_mmpdb, data_dict_molID = Step_3_mmp_analysis(dataTable_4_mmp, dict_prop_cols, colName_mid, colName_smi, output_folder, symmetric=True)
+
+    ## ------------------------------------------------------------------
+    #### Step-4. Extracing all tables from database file
+    ## ------------------------------------------------------------------
+    #### Step-5. Clean up the MMPs data from the DB
+
+    ## ------------------------------------------------------------------
+    #### Step-6. save the results
 
 if __name__ == '__main__':
     main()
