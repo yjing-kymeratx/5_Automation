@@ -276,7 +276,7 @@ def _run_cmd(commandLine):
     return (output, error)
 
 ################################################################################################
-def Step_3_mmp_analysis(dataTable, colName_prop_list, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results', symmetric=False):
+def Step_3_mmp_analysis(dataTable, colName_prop_list, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results', symmetric=False, max_HAC=10):
     ## count time
     beginTime = time.time()
     print(f"3. Preparing SMILES file and property CSV file for MMPs-DB analysis...")
@@ -293,7 +293,10 @@ def Step_3_mmp_analysis(dataTable, colName_prop_list, colName_mid='Compound Name
     ## ----------- Indexing to find the MMPs and load the activity data -----------
     file_mmpdb = f'{output_folder}/Compounds_All.mmpdb'
     commandLine_2 = ['mmpdb', 'index', file_fragdb, '-o', file_mmpdb, '--properties', file_prop_csv]
-
+    if max_HAC > 10:
+        commandLine_2.append(' --max-variable-heavies')
+        commandLine_2.append(int(max_HAC))
+        
     if symmetric:
         commandLine_2.append('--symmetric')
 

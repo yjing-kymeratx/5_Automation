@@ -63,9 +63,9 @@ bash2py="$JobDir/bash2py_mmp_local.bash"
 pyScript="$JobDir/calc_MMPs.py"
 queryID=3539    #4975
 echo "--------------------------------------------"
-# $bash2py python $pyScript -q $queryID    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-inFileName="$RootDir/D360_dataset_q_id3539_111224_1528.csv"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-$bash2py python $pyScript -i $inFileName    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$bash2py python $pyScript -q $queryID    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# inFileName="$RootDir/D360_dataset_q_id3539_111224_1528.csv"    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# $bash2py python $pyScript -i $inFileName    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 echo "--------------------------------------------"
 
 ## ------------------ after done with the job, move to "Completed" folder ------------------

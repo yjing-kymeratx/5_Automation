@@ -290,9 +290,14 @@ def Step_2_clean_data(dataTable, dict_prop_cols, colName_mid, colName_smi, tmp_f
     beginTime = time.time()
     print(f"2. Cleaning data ...")
     ## ------------------------------------------------------------------
+    ## -------- remove nans --------
+    dataTable = dataTable.dropna(subset=[colName_mid, colName_smi])
+    print(f"\tThe rm_Nan(id, smiles) data has <{dataTable.shape[0]}> rows and {dataTable.shape[1]} columns")
+
+    ## -------- clean up smiles --------
     print(f'\tChecking the vadality of the SMILES using RDKit ...')
     dataTable[f"{colName_smi}_raw"] = dataTable[colName_smi].apply(lambda x: x)
-    dataTable[colName_smi] = dataTable[colName_smi].apply(_cleanUpSmiles)
+    dataTable[colName_smi] = dataTable[colName_smi].apply(lambda x: _cleanUpSmiles(x))
 
     ## ------------------------- remove invalid smiles -------------------------
     dataTable = dataTable.dropna(subset=[colName_mid, colName_smi]).reset_index(drop=True)
@@ -414,7 +419,7 @@ def _run_cmd(commandLine):
     return (output, error)
 
 ################################################################################################
-def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results', symmetric=False):
+def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', colName_smi='Structure', output_folder='./results', symmetric=False, max_HAC=10):
     ## count time
     beginTime = time.time()
     print(f"3. Preparing SMILES file and property CSV file for MMPs-DB analysis...")
@@ -432,6 +437,10 @@ def Step_3_mmp_analysis(dataTable, dict_prop_cols, colName_mid='Compound Name', 
     ## ----------- Indexing to find the MMPs and load the activity data -----------
     file_mmpdb = f'{output_folder}/Compounds_All.mmpdb'
     commandLine_2 = ['mmpdb', 'index', file_fragdb, '-o', file_mmpdb, '--properties', file_prop_csv]
+
+    if max_HAC > 10:
+        commandLine_2.append(' --max-variable-heavies')
+        commandLine_2.append(int(max_HAC))
 
     if symmetric:
         commandLine_2.append('--symmetric')
@@ -618,10 +627,12 @@ def main():
 
     ## ------------------------------------------------------------------
     #### Step-3. MMPs analysis
-    file_mmpdb, data_dict_molID = Step_3_mmp_analysis(dataTable_4_mmp, dict_prop_cols, colName_mid, colName_smi, output_folder, symmetric=True)
+    file_mmpdb, data_dict_molID = Step_3_mmp_analysis(dataTable_4_mmp, dict_prop_cols, colName_mid, colName_smi, output_folder, symmetric=True, max_HAC=15)
 
     ## ------------------------------------------------------------------
     #### Step-4. Extracing all tables from database file
+    dataDict_dbTables = Step_4_extract_data_from_DB(file_mmpdb, tmp_folder)
+
     ## ------------------------------------------------------------------
     #### Step-5. Clean up the MMPs data from the DB
 
