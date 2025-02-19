@@ -33,7 +33,7 @@ $bash2py python "$Dir_step1"/DataPrep.py -i "$fileInS1" -d ',' --detectEncoding 
 
 ## step-2
 Dir_step2="$JobDir/1_DataPrep"
-split='random'
+split='temporal'      #'random', 'diverse'
 CV=10
 rng=666666
 hasVal=True
