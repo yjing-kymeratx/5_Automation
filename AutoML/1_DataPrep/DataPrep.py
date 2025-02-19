@@ -44,7 +44,7 @@ def _determine_encoding(fileNameIn, default='utf-8'):
     return encoding
 
 ## ---------------- load csv using pandas ----------------
-def read_csv(fileNameIn, sep, detect_encoding=False):
+def load_csv(fileNameIn, sep, detect_encoding=False):
     import pandas as pd
 
     print(f"\t==>Now reading the csv...")
@@ -196,7 +196,7 @@ def main():
 
     filePathOut = args.output    ## 'Concat;Project'   
 
-    dataTable = read_csv(fileNameIn, sep=sep, detect_encoding=detect_encoding)
+    dataTable = load_csv(fileNameIn, sep=sep, detect_encoding=detect_encoding)
     dataTable = clean_smiles(dataTable, colName_smi=colName_smi, canonical=False, errmsg=False)
     dataTable = clean_csv(dataTable, cols_basic=[colName_mid, colName_smi], cols_data=[colName_expt], cols_mod=[colName_expt_operator])
 
