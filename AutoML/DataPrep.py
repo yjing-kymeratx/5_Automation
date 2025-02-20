@@ -201,6 +201,7 @@ def main():
     dataTable = clean_smiles(dataTable, colName_smi=colName_smi, canonical=False, errmsg=False)
     dataTable = clean_csv(dataTable, cols_basic=[colName_mid, colName_smi], cols_data=[colName_expt], cols_mod=[colName_expt_operator])
 
+    dataTable_y = dataTable[[colName_mid, colName_expt]]
     dataTable, dataTable_desc = extract_custom_desc(dataTable, colName_mid, colName_custom_desc)
 
     ## save output
@@ -210,6 +211,12 @@ def main():
     dataTable.to_csv(filePathOut, index=False)
     print(f"\tThe cleaned data table has been saved to {filePathOut}")
     
+    ## save the y output
+    ofileName_y = os.path.join(output_folder, f'outcome_expt.csv')
+    dataTable_y.to_csv(ofileName_y, index=False)
+    print(f"\tThe experiment outcome table has been saved to {ofileName_y}")
+
+    ## save the desc output
     if dataTable_desc is not None:
         ofileName_desc = os.path.join(output_folder, f'descriptors_custom.csv')
         dataTable_desc.to_csv(ofileName_desc, index=False)
