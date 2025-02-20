@@ -15,37 +15,51 @@ echo "Today is $dateToday"
 # bash2py="./bash2py_yjing_local.bash"
 bash2py="/mnt/data0/Research/0_Test/cx_pKa/bash2py_yjing_local.bash"
 JobDir='./'
+resultDir="$JobDir/results"
 
-## step-1
-Dir_step1="$JobDir/1_DataPrep"
-fileInS1="$Dir_step1/0_Data/DataView_MDCK_MDR1__Permeability_1__export.csv"
-fileOutS1="$Dir_step1/results/data_input_clean.csv"
-
+## step-1 csv loader & data clean
+# fileInS1="$JobDir/Data/DataView_MDCK_MDR1__Permeability_1__export.csv"
+fileInS1="$JobDir/Data/DataView_MDCK_MDR1__Permeability_1__export_top40.csv"
 colId='Compound Name'
 colSmi='Structure'
-colDate="ADME MDCK(WT) Permeability;Concat;Run Date"
 colAssay='ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);(Num)'
 colAssayMod='ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);(Mod)'
 colPreCalcDesc="ADME MDCK(WT) Permeability;Mean;A to B Recovery (%),ADME MDCK(WT) Permeability;Mean;B to A Papp (10^-6 cm/s);(Num)"
+fileOutS1="$resultDir/data_input_clean.csv"
 
-$bash2py python "$Dir_step1"/DataPrep.py -i "$fileInS1" -d ',' --detectEncoding --colId "$colId" --colSmi "$colSmi" --colAssay "$colAssay" --colAssayMod "$colAssayMod" --colPreCalcDesc "$colPreCalcDesc" -o "$fileOutS1"
+$bash2py python "$JobDir"/DataPrep.py -i "$fileInS1" -d ',' --detectEncoding --colId "$colId" --colSmi "$colSmi" --colAssay "$colAssay" --colAssayMod "$colAssayMod" --colPreCalcDesc "$colPreCalcDesc" -o "$fileOutS1"
 
-
-## step-2
-Dir_step2="$JobDir/1_DataPrep"
-split='temporal'      #'random', 'diverse'
+## step-2 train-val-test split
+fileInS2="$fileOutS1"
+colId="$colId"
+colSmi="$colSmi"
+colDate="ADME MDCK(WT) Permeability;Concat;Run Date"
+split='diverse'      #'random', 'diverse', 'temporal'
 CV=10
 rng=666666
 hasVal=True
-folderOutS2="$Dir_step2/results"
-$bash2py python "$Dir_step2"/Data_Split.py -i "$fileOutS1" -d ',' --colId "$colId" --colSmi "$colSmi" --colDate "$colDate" --split "$split" --CV "$CV" --rng "$rng" --hasVal "$hasVal" -o "$folderOutS2"
+folderOutS2="$resultDir"
 
-## step-3
-Dir_step3="$JobDir/2_FeatPrep/DescGen"
-folderOutS3="$Dir_step3/results"
-$bash2py python "$Dir_step3"/DescGen.py -i "$fileOutS1" -d ',' --colId "$colId" --colSmi "$colSmi" --desc_rdkit --desc_fps --desc_cx -o "$folderOutS3"
+$bash2py python "$JobDir"/DataSplit.py -i "$fileInS2" -d ',' --colId "$colId" --colSmi "$colSmi" --colDate "$colDate" --split "$split" --CV "$CV" --rng "$rng" --hasVal "$hasVal" -o "$folderOutS2"
 
-## step-4
+## step-3 generate descriptors
+fileInS3="$fileOutS1"
+colId="$colId"
+colSmi="$colSmi"
+desc_rdkit=True
+desc_fps=True
+desc_cx=True
+folderOutS3="$resultDir"
+
+$bash2py python "$JobDir"/DescGen.py -i "$fileInS3" -d ',' --colId "$colId" --colSmi "$colSmi" --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" -o "$folderOutS3"
+
+## step-4 feature selection
+folderInS4="$resultDir"
+desc_rdkit=True
+desc_fps=True
+desc_cx=True
+$bash2py python "$JobDir"/FeatSele.py -i "$folderInS4" -d ',' --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" --colId "$colId" -o "$folderOutS3"
+
 
 
 
