@@ -100,6 +100,7 @@ def extract_custom_desc(dataTable, colName_mid, colName_custom_desc):
 
         if len(list_available_desc) > 0:
             dataTable_desc = dataTable[[colName_mid]+list_available_desc]
+            dataTable_desc = dataTable_desc.rename(columns={col: f"custDesc_{col}" for col in list_available_desc})
             dataTable = dataTable.drop(columns=list_available_desc)
             print(f'\tThe custom desciptor table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
             print(f'\tAfter extracting the custom desc, the table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
