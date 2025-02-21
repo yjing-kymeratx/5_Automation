@@ -400,7 +400,7 @@ def descriptor_imputation(dataTable, colName_mid):
     import copy
     import pandas as pd
     dataTable_imput = copy.deepcopy(dataTable)
-    total_count = dataTable_norm.shape[0]
+    total_count = dataTable_imput.shape[0]
     for col in dataTable_imput.columns:
         if col != colName_mid:
             try:
@@ -452,28 +452,29 @@ def mute_rdkit():
 ######################### main function ############################
 ####################################################################
 def main():
-    import pandas as pd
+    ## ------------ load args ------------
+    if True:
+        args = Args_Prepation(parser_desc='Descriptor calculation')
+        fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
+        sep = args.delimiter    # ',' 
+        # detect_encoding = True if args.detectEncoding else False
+        colName_mid = args.colId    # 'Compound Name'
+        colName_smi = args.colSmi    # 'Structure'
+        desc_fps = True if args.desc_fps=="True" else False
+        desc_rdkit = True if args.desc_rdkit=="True" else False
+        desc_cx = True if args.desc_cx=="True" else False
+        colName_custom_desc = args.colPreCalcDesc
+        do_norm = True if args.norm=='True' else False
+        do_imputation = True if args.imput=='True' else False
+        folderPathOut = args.output    ## './results'
 
-    args = Args_Prepation(parser_desc='Preparing the input files and the descriptors')
-    fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
-    sep = args.delimiter    # ',' 
-    # detect_encoding = True if args.detectEncoding else False
-    colName_mid = args.colId    # 'Compound Name'
-    colName_smi = args.colSmi    # 'Structure'
-    desc_fps = True if args.desc_fps=="True" else False
-    desc_rdkit = True if args.desc_rdkit=="True" else False
-    desc_cx = True if args.desc_cx=="True" else False
-    colName_custom_desc = args.colPreCalcDesc
-    do_norm = True if args.norm=='True' else False
-    do_imputation = True if args.imput=='True' else False
-    folderPathOut = args.output    ## './results'
-
-    ## descriptor calculation params
-    rd_physChem, rd_subStr, rd_clean = True, True, True
-    fp_radius, fp_nBits = 3, 2048
-    cx_version, cx_desc = 'V22', 'all'
+        ## descriptor calculation params
+        rd_physChem, rd_subStr, rd_clean = True, True, True
+        fp_radius, fp_nBits = 3, 2048
+        cx_version, cx_desc = 'V22', 'all'
 
     ## ------------ load data ------------
+    import pandas as pd
     dataTable_raw = pd.read_csv(fileNameIn, sep=sep)
     print(f"\t{dataTable_raw.shape}")
     assert colName_mid in dataTable_raw.columns, f"\tColumn name for mol ID <{colName_mid}> is not in the table."

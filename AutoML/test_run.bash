@@ -37,7 +37,7 @@ colId="$colId"
 colSmi="$colSmi"
 colDate="ADME MDCK(WT) Permeability;Concat;Run Date"
 colPreCalcDesc="ADME MDCK(WT) Permeability;Mean;A to B Recovery (%),ADME MDCK(WT) Permeability;Mean;B to A Papp (10^-6 cm/s);(Num)"
-split='random'     #'random', 'diverse', 'temporal'
+split='diverse'     #'random', 'diverse', 'temporal'
 CV=10
 rng=666666
 hasVal=True
@@ -59,13 +59,23 @@ folderOutS3="$resultDir"
 $bash2py python "$JobDir"/DescGen.py -i "$fileInS3" -d ',' --colId "$colId" --colSmi "$colSmi" --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" --colPreCalcDesc "$colPreCalcDesc" --norm "$norm" --imput "$imput" -o "$folderOutS3"
 
 ## ------------------ step-4 feature selection ------------------
-# folderInS4="$resultDir"
-# desc_rdkit=True
-# desc_fps=True
-# desc_cx=True
-# $bash2py python "$JobDir"/FeatSele.py -i "$folderInS4" -d ',' --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" --colId "$colId" -o "$folderOutS3"
+folderInS4="$resultDir"
+colId="$colId"
+desc_custom="True"
+desc_rdkit="True"
+desc_fps="True"
+desc_cx="True"
 
+modelType="regression"    ## "regression" or "classification"
 
+nanFilter="True"
+VFilter="True"
+L2Filter="True"
+FIFilter="True"
+folderOutS4="$resultDir"
+$bash2py python "$JobDir"/FeatSele.py -i "$folderInS4" -d ',' --colId "$colId" --desc_custom "$desc_custom" --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" --modelType "$modelType" --MissingValueFilter "$nanFilter" --VarianceFilter "$VFilter" --L2Filter "$L2Filter" --FIFilter "$FIFilter" -o "$folderOutS4"
+
+## ------------------ step-5 ML modeling ------------------
 
 
 
