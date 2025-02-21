@@ -54,11 +54,11 @@ folderOutS3="$resultDir"
 $bash2py python "$JobDir"/DescGen.py -i "$fileInS3" -d ',' --colId "$colId" --colSmi "$colSmi" --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" -o "$folderOutS3"
 
 ## step-4 feature selection
-folderInS4="$resultDir"
-desc_rdkit=True
-desc_fps=True
-desc_cx=True
-$bash2py python "$JobDir"/FeatSele.py -i "$folderInS4" -d ',' --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" --colId "$colId" -o "$folderOutS3"
+# folderInS4="$resultDir"
+# desc_rdkit=True
+# desc_fps=True
+# desc_cx=True
+# $bash2py python "$JobDir"/FeatSele.py -i "$folderInS4" -d ',' --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" --colId "$colId" -o "$folderOutS3"
 
 
 

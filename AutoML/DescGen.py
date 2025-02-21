@@ -316,7 +316,31 @@ class desc_calculator_chemaxon(object):
 
 
 ####################################################################
+######################## Normalization #############################
 ####################################################################
+def _calc_z_score(value_list):
+    import numpy as np
+    value_array = np.array(value_list)
+    v_mean = np.mean(value_array)
+    v_sd = np.std(value_array)
+    return v_mean, v_sd
+
+def descriptor_norm(dataTable, colName_mid):
+    dataTable_desc = dataTable.drop(columns=[colName_mid])
+    for col in dataTable_desc.columns:
+        try:
+            desc_values = dataTable_desc[col].to_numpy()
+            v_mean, v_sd = _calc_z_score(desc_values)
+            dataTable_desc[col] = (dataTable_desc[col] - v_mean)/ v_sd
+        except Exception as e:
+            print(f"Warning! This desc <{col}> cannot be normalized using Z-score! Error msg: {e}")
+    dataTable_desc[colName_mid] = dataTable[colName_mid]
+    return dataTable_desc
+
+
+
+####################################################################
+########################## Tools ###################################
 ####################################################################
 ## get the args
 def Args_Prepation(parser_desc):
@@ -332,6 +356,8 @@ def Args_Prepation(parser_desc):
     parser.add_argument('--desc_fps', action="store", default="True", help='calculate the molecular fingerprints')
     parser.add_argument('--desc_rdkit', action="store", default="True", help='calculate the molecular property using RDKit')
     parser.add_argument('--desc_cx', action="store", default="True", help='calculate the molecular property using ChemAxon')
+
+    parser.add_argument('--norm', action="store", default="True", help='normalize the descriptors (z-score)')
     parser.add_argument('-o', '--output', action="store", default="./results", help='the output folder')
 
     args = parser.parse_args()
@@ -377,7 +403,7 @@ def main():
     desc_fps = True if args.desc_fps=="True" else False
     desc_rdkit = True if args.desc_rdkit=="True" else False
     desc_cx = True if args.desc_cx=="True" else False
-
+    do_norm = True if args.norm=='True' else False
     folderPathOut = args.output    ## './results'
 
     ## descriptor calculation params
@@ -415,14 +441,27 @@ def main():
 
     ## ------------ save output ------------
     for app in result_dict:
-        # data_dict = result_dict[app]
         data_table = pd.DataFrame.from_dict(result_dict[app]).T
-        ## save
+
+        ## normalization
+        if do_norm and app not in ['fingerprints']:
+            data_table_norm = descriptor_norm(data_table, colName_mid=colName_mid)
+        else:
+            data_table_norm = data_table
+
+        ## save to csv
         import os
         os.makedirs(folderPathOut, exist_ok=True)
+
         out_csv = f"./results/descriptors_{app}.csv"
         data_table.to_csv(out_csv, index=False)
         print(f"\tThe <{app}> descriptor data {data_table.shape} has been saved to <{out_csv}>.")
+
+        out_csv_norm = f"./results/descriptors_{app}_norm.csv"
+        data_table_norm.to_csv(out_csv_norm, index=False)
+        print(f"\tThe normalized <{app}> descriptor data {data_table_norm.shape} has been saved to <{out_csv_norm}>.")
+
+        
     # return result_dict
 
 if __name__ == '__main__':
