@@ -83,7 +83,7 @@ def nFoldSplit_temporal(dataTable, colName_mid='Compound Name', colName_date="Cr
 ## ================================================================================================
 ## ==================================== diverse split ============================================
 ## ================================================================================================
-def nFoldSplit_diverse(dataTable, colName_mid='Compound Name', colName_smi="Structure", CV=10, hasVal=True):
+def nFoldSplit_diverse(dataTable, colName_mid='Compound Name', colName_smi="Structure", CV=10, rng=666666, hasVal=True):
     ds_size = dataTable.shape[0]
     assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})"
 
@@ -110,7 +110,7 @@ def nFoldSplit_diverse(dataTable, colName_mid='Compound Name', colName_smi="Stru
     num_picks_real = 2*num_picks if hasVal else num_picks
 
     ## Select N diverse molecules from the set
-    pick_idx = picker.Pick(np.array(ds), len(fps), num_picks_real)
+    pick_idx = picker.Pick(np.array(ds), len(fps), num_picks_real, seed=rng)
     idx_test = pick_idx[:num_picks] if hasVal else pick_idx
     idx_val = pick_idx[num_picks:] if hasVal else []
     idx_train = [i for i in dataTable_split.index if i not in pick_idx]
@@ -198,7 +198,7 @@ def main():
     ## ------------ calculate chemAxon properties ------------
     elif split_method == 'diverse':
         assert colName_smi in dataTable_raw.columns, f"\tColumn name for mol smiles <{colName_smi}> is not in the table."
-        dataTable_split = nFoldSplit_diverse(dataTable_raw, colName_mid, colName_smi, CV=10, hasVal=hasVal)
+        dataTable_split = nFoldSplit_diverse(dataTable_raw, colName_mid, colName_smi, CV=CV, rng=rng, hasVal=hasVal)
 
     ## ------------ save the split ------------
     import os

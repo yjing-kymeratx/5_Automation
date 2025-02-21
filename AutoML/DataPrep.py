@@ -85,31 +85,6 @@ def clean_csv(dataTable, cols_basic, cols_data, cols_mod=None):
     dataTable = dataTable.reset_index(drop=True)
     return dataTable
 
-## ---------------- extract custom descriptors ----------------
-def extract_custom_desc(dataTable, colName_mid, colName_custom_desc):
-    if colName_custom_desc is not None:
-        print(f"\tNow extracting the custom desc using the defined column names: {colName_custom_desc}")
-        list_custom_desc = colName_custom_desc.split(',')
-        list_available_desc = []
-        for desc in list_custom_desc:
-            if desc in dataTable.columns:
-                list_available_desc.append(desc)
-            else:
-                print(f"\t\tWarning! This custom descriptor <{desc}> is not in the data table, so ignored this column")
-        print(f"\tThere are total {len(list_available_desc)} custom descriptors extracted")
-
-        if len(list_available_desc) > 0:
-            dataTable_desc = dataTable[[colName_mid]+list_available_desc]
-            dataTable_desc = dataTable_desc.rename(columns={col: f"custDesc_{col}" for col in list_available_desc})
-            dataTable = dataTable.drop(columns=list_available_desc)
-            print(f'\tThe custom desciptor table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
-            print(f'\tAfter extracting the custom desc, the table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
-        else:
-            dataTable_desc = None
-    else:
-        print(f"\tNo custom desc is defined")
-    return dataTable, dataTable_desc
-
 ################################################################################################
 ################################## SMILES processing Tools #####################################
 ################################################################################################
@@ -173,8 +148,6 @@ def Args_Prepation(parser_desc):
     parser.add_argument('--colAssay', action="store", default='IC50', help='The column names of the assay values, only 1 column is accepted')
     parser.add_argument('--colAssayMod', action="store", default=None, help='The column names of the assay values operator, only 1 column is accepted')
 
-    parser.add_argument('--colPreCalcDesc', action="store", default=None, help='comma separated string e.g., <desc_1,desc_2,desc_3>')
-
     parser.add_argument('-o', '--output', action="store", default="./results/data_input_clean.csv", help='save the cleaned csv file')
 
     args = parser.parse_args()
@@ -193,34 +166,24 @@ def main():
     colName_expt = args.colAssay    #'ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);(Num)'
     colName_expt_operator = args.colAssayMod    # 'ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);(Mod)'    ## None
 
-    colName_custom_desc = args.colPreCalcDesc
-
     filePathOut = args.output    ## 'Concat;Project'   
 
     dataTable = load_csv(fileNameIn, sep=sep, detect_encoding=detect_encoding)
     dataTable = clean_smiles(dataTable, colName_smi=colName_smi, canonical=False, errmsg=False)
     dataTable = clean_csv(dataTable, cols_basic=[colName_mid, colName_smi], cols_data=[colName_expt], cols_mod=[colName_expt_operator])
-
     dataTable_y = dataTable[[colName_mid, colName_expt]]
-    dataTable, dataTable_desc = extract_custom_desc(dataTable, colName_mid, colName_custom_desc)
-
+    
     ## save output
     import os
-    output_folder = os.path.dirname(filePathOut)
-    os.makedirs(output_folder, exist_ok=True)
+    folderPathOut = os.path.dirname(filePathOut)
+    os.makedirs(folderPathOut, exist_ok=True)
     dataTable.to_csv(filePathOut, index=False)
     print(f"\tThe cleaned data table has been saved to {filePathOut}")
     
     ## save the y output
-    ofileName_y = os.path.join(output_folder, f'outcome_expt.csv')
+    ofileName_y = os.path.join(folderPathOut, f'outcome_expt.csv')
     dataTable_y.to_csv(ofileName_y, index=False)
     print(f"\tThe experiment outcome table has been saved to {ofileName_y}")
-
-    ## save the desc output
-    if dataTable_desc is not None:
-        ofileName_desc = os.path.join(output_folder, f'descriptors_custom.csv')
-        dataTable_desc.to_csv(ofileName_desc, index=False)
-        print(f"\tThe custom descriptors table has been saved to {ofileName_desc}")
 
 if __name__ == '__main__':
     main()
