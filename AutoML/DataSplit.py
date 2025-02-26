@@ -159,6 +159,7 @@ def assign_value(idx, list_train, list_val, list_test):
 
 
 def main():
+    print(f">>>>Spliting dataset ...")
     args = Args_Prepation(parser_desc='Preparing the input files and the descriptors')
     fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
     sep = args.delimiter 

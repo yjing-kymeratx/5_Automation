@@ -154,6 +154,7 @@ def Args_Prepation(parser_desc):
     return args
 
 def main():
+    print(f">>>>Preparing dataset ...")
     args = Args_Prepation(parser_desc='Preparing the input files')
 
     fileNameIn = args.input    # f"./0_Data/DataView_MDCK_MDR1__Permeability_1__export.csv"

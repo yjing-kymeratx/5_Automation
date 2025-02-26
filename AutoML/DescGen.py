@@ -183,12 +183,24 @@ class desc_calculator_chemaxon(object):
                     ## detect if there is errors for the calculation
                     if "error" in output_decoded[propType]:
                         dataDict_out[propType] = output_decoded[propType]["error"]["message"]
-                    
+
+                    ## ---------------- pKa ----------------
+                    elif propType == 'pka':
+                        ## all pKa value list and atom info
+                        for pKa_type in ['acidic', 'basic']:
+                            reverse = True if pKa_type=='basic' else False
+                            pKa_spec = sorted(output_decoded[propType][f'{pKa_type}ValuesByAtom'], key=lambda x: x['value'], reverse=reverse)
+                            for i_pka in range(min([len(pKa_spec), 2])):
+                                pKa_colName = [f'{pKa_type[0]}pKa1', f'{pKa_type[0]}pKa2'][i_pka]
+                                dataDict_out[f'pka_{pKa_colName}'] = pKa_spec[i_pka]['value']
+
+                    ## ---------------- logd ----------------
                     elif propType == 'logd':
                         for item in output_decoded[propType]['logDByPh']:
                             pH = item['pH']
                             dataDict_out[f'{propType}[pH={pH}]'] = item['value']
                     
+                    ## ---------------- solubility ----------------
                     elif propType == 'solubility':
                         if 'unit' in output_decoded[propType]:
                             propType_specific = propType + '(' + output_decoded[propType]['unit'] + ')'
@@ -201,14 +213,7 @@ class desc_calculator_chemaxon(object):
                                 for sol in output_decoded[propType][item]:
                                     this_ph, this_value = sol['pH'], sol['value']
                                     dataDict_out[f'{propType_specific}[pH={this_ph}]'] = this_value
-                
-                    elif propType == 'pka':
-                        ## all pKa value list and atom info
-                        for pKa_type in ['acidic', 'basic']:
-                            pKa_spec = sorted(output_decoded[propType][f'{pKa_type}ValuesByAtom'], key=lambda x: x['value'], reverse=False)
-                            for i_pka in range(min([len(pKa_spec), 2])):
-                                pKa_colName = [f'{pKa_type[0]}pKa1', f'{pKa_type[0]}pKa2'][i_pka]
-                                dataDict_out[f'pka_{pKa_colName}'] = pKa_spec[i_pka]['value']
+
                     else:
                         for propName in output_decoded[propType]:
                             ## for the atom level detailed information, by pass if <detailedInfo> flag false
@@ -313,7 +318,7 @@ class desc_calculator_chemaxon(object):
         return api_param_dict
 
 ## ------------------ calculate the descs from table ------------------ 
-def calc_desc_for_table(dataTable, colName_mid, colName_smi, desc_calculator):
+def calc_desc_from_table(dataTable, colName_mid, colName_smi, desc_calculator):
     dataDict_desc = {}
 
     for idx in dataTable.index:
@@ -336,7 +341,7 @@ def calc_desc_for_table(dataTable, colName_mid, colName_smi, desc_calculator):
 ####################################################################
 def extract_custom_desc(dataTable, colName_mid, colName_custom_desc):
     if colName_custom_desc is not None:
-        print(f"\tNow extracting the custom desc using the defined column names: {colName_custom_desc}")
+        print(f"\t\tNow extracting the custom desc using the defined column names: {colName_custom_desc}")
         list_custom_desc = colName_custom_desc.split(',')
         list_available_desc = []
         for desc in list_custom_desc:
@@ -344,18 +349,18 @@ def extract_custom_desc(dataTable, colName_mid, colName_custom_desc):
                 list_available_desc.append(desc)
             else:
                 print(f"\t\tWarning! This custom descriptor <{desc}> is not in the data table, so ignored this column")
-        print(f"\tThere are total {len(list_available_desc)} custom descriptors extracted")
+        print(f"\t\tThere are total {len(list_available_desc)} custom descriptors extracted")
 
         if len(list_available_desc) > 0:
             dataTable_desc = dataTable[[colName_mid]+list_available_desc]
             dataTable_desc = dataTable_desc.rename(columns={col: f"custDesc_{col}" for col in list_available_desc})
-            print(f'\tThe custom desciptor table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
+            print(f'\t\tThe custom desciptor table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
             # dataTable = dataTable.drop(columns=list_available_desc)
             # print(f'\tAfter extracting the custom desc, the table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
         else:
             dataTable_desc = None
     else:
-        print(f"\tNo custom desc is defined")
+        print(f"\t\tNo custom desc is defined")
     return dataTable_desc
 
 ####################################################################
@@ -370,13 +375,13 @@ def _calc_z_score(value_list):
     v_min = np.min(value_array)
     return v_mean, v_sd, v_max, v_min
 
-def descriptor_norm(dataTable, colName_mid):
+def descriptor_norm(dataTable, cols_ignore):
     dict_norm_param = {}
     import copy
     dataTable_norm = copy.deepcopy(dataTable)
     total_count = dataTable_norm.shape[0]
     for col in dataTable_norm.columns:
-        if col != colName_mid:
+        if col not in cols_ignore:
             try:
                 desc_values = dataTable_norm[col].to_numpy()
                 v_mean, v_std, v_max, v_min = _calc_z_score(desc_values)
@@ -395,16 +400,17 @@ def descriptor_norm(dataTable, colName_mid):
 ####################################################################
 ######################### Imputation ###############################
 ####################################################################
-def descriptor_imputation(dataTable, colName_mid):
+def descriptor_imputation(dataTable, cols_ignore, descType=None):
     dict_imput_param = {}
     import copy
     import pandas as pd
     dataTable_imput = copy.deepcopy(dataTable)
     total_count = dataTable_imput.shape[0]
     for col in dataTable_imput.columns:
-        if col != colName_mid:
+        if col not in cols_ignore:
             try:
                 median_values = dataTable_imput[col].median()
+                median_values = round(median_values) if descType in ['fingerprints'] else median_values
                 count_nan = int(dataTable_imput[col].isna().sum())
                 with pd.option_context('future.no_silent_downcasting', True):
                     dataTable_imput[col] = dataTable_imput[col].fillna(median_values)
@@ -452,6 +458,9 @@ def mute_rdkit():
 ######################### main function ############################
 ####################################################################
 def main():
+    mute_rdkit()
+    print(f">>>>Generating Descriptors ...")
+
     ## ------------ load args ------------
     if True:
         args = Args_Prepation(parser_desc='Descriptor calculation')
@@ -466,12 +475,16 @@ def main():
         colName_custom_desc = args.colPreCalcDesc
         do_norm = True if args.norm=='True' else False
         do_imputation = True if args.imput=='True' else False
-        folderPathOut = args.output    ## './results'
+        
 
         ## descriptor calculation params
         rd_physChem, rd_subStr, rd_clean = True, True, True
         fp_radius, fp_nBits = 3, 2048
         cx_version, cx_desc = 'V22', 'all'
+
+        import os
+        folderPathOut = args.output    ## './results'
+        os.makedirs(folderPathOut, exist_ok=True)
 
     ## ------------ load data ------------
     import pandas as pd
@@ -484,67 +497,79 @@ def main():
     print(f"\tCalculating descriptors (RDKit: {desc_rdkit}; FPs {desc_fps}; ChemAxon {desc_cx}) ... ")
     ## ------------ calculate rdkit properties ------------
     if desc_rdkit:
-        mute_rdkit()
-        print(f"\tNow calculating the rdkit descriptors")
+        app = 'rdkit'
+        print(f"\t\tNow calculating the <{app}> descriptors")
         calculator_rd = desc_calculator_rdkit(physChem=rd_physChem, subStr=rd_subStr, clean=rd_clean)
-        result_dict_rd = calc_desc_for_table(dataTable_raw, colName_mid, colName_smi, calculator_rd)
-        table_dict['rdkit'] = pd.DataFrame.from_dict(result_dict_rd).T
+        result_dict_rd = calc_desc_from_table(dataTable_raw, colName_mid, colName_smi, calculator_rd)
+             
+        table_dict[app] = pd.DataFrame.from_dict(result_dict_rd).T
+        table_dict[app].to_csv(f"{folderPathOut}/descriptors_{app}_raw.csv", index=False)
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.")
 
     ## ------------ calculate mol fingerprints ------------
     if desc_fps:
-        mute_rdkit()
-        print(f"\tNow calculating the molecular fingerprints descriptors")
+        app = 'fingerprints'
+        print(f"\tNow calculating the molecular <{app}> descriptors")
         calculator_fp = desc_calculator_morganFPs(radius=fp_radius, nBits=fp_nBits)
-        result_dict_fp = calc_desc_for_table(dataTable_raw, colName_mid, colName_smi, calculator_fp)
-        table_dict['fingerprints'] = pd.DataFrame.from_dict(result_dict_fp).T
+        result_dict_fp = calc_desc_from_table(dataTable_raw, colName_mid, colName_smi, calculator_fp)
+
+        table_dict[app] = pd.DataFrame.from_dict(result_dict_fp).T
+        table_dict[app].to_csv(f"{folderPathOut}/descriptors_{app}_raw.csv", index=False)
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.")
 
     ## ------------ calculate chemAxon properties ------------
     if desc_cx:
-        print(f"\tNow calculating the chemaxon descriptors")
+        app = 'chemaxon'
+        print(f"\tNow calculating the molecular <{app}> descriptors")
         calculator_cx = desc_calculator_chemaxon(version=cx_version, desc_list=cx_desc)
-        result_dict_cx= calc_desc_for_table(dataTable_raw, colName_mid, colName_smi, calculator_cx)
-        table_dict['chemaxon'] = pd.DataFrame.from_dict(result_dict_cx).T
+        result_dict_cx= calc_desc_from_table(dataTable_raw, colName_mid, colName_smi, calculator_cx)
+
+        table_dict[app] = pd.DataFrame.from_dict(result_dict_fp).T
+        table_dict[app].to_csv(f"{folderPathOut}/descriptors_{app}_raw.csv", index=False)
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.")
     
     ## ------------ extract the custom desc ------------
     if colName_custom_desc is not None:
-        print(f"\tNow extracting the custom descriptors")
-        table_dict['custom'] = extract_custom_desc(dataTable_raw, colName_mid, colName_custom_desc)
-       
-    ## ------------ save output ------------
-    import os
-    os.makedirs(folderPathOut, exist_ok=True)
+        app = 'custom'
+        print(f"\tNow extracting the <{app}> descriptors")
+        table_dict[app] = extract_custom_desc(dataTable_raw, colName_mid, colName_custom_desc)
+        table_dict[app].to_csv(f"{folderPathOut}/descriptors_{app}_raw.csv", index=False)
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.")
 
+    ## ------------ process & merge output ------------
+    dataTable_desc_prep_merged = pd.DataFrame(columns=[colName_mid])
     dict_norm_param_all, dict_imput_param_all = {}, {}
     for app in table_dict:
         data_table_raw = table_dict[app]
         data_table_prep = table_dict[app]
         ## ------------------- normalization -------------------
         if do_norm and app not in ['fingerprints']:
-            data_table_prep, dict_norm_param = descriptor_norm(data_table_prep, colName_mid=colName_mid)
+            data_table_prep, dict_norm_param = descriptor_norm(data_table_prep, cols_ignore=[colName_mid])
             dict_norm_param_all.update(dict_norm_param)
 
         ## ------------------- imputation -------------------
         if do_imputation:
-            data_table_prep, dict_imput_param = descriptor_imputation(data_table_prep, colName_mid=colName_mid)
+            data_table_prep, dict_imput_param = descriptor_imputation(data_table_prep, cols_ignore=[colName_mid], descType=app)
             dict_imput_param_all.update(dict_imput_param)
 
-        ## ------------------- save to csv -------------------
-        out_csv_raw = f"{folderPathOut}/descriptors_{app}_raw.csv"
-        data_table_raw.to_csv(out_csv_raw, index=False)
-        print(f"\tThe raw <{app}> descriptor data {data_table_raw.shape} has been saved to <{out_csv_raw}>.")
+        ## merge
+        dataTable_desc_prep_merged = dataTable_desc_prep_merged.merge(right=data_table_prep, on='Compound Name', how='outer')
 
-        out_csv_prep = f"{folderPathOut}/descriptors_{app}_processed.csv"
-        data_table_prep.to_csv(out_csv_prep, index=False)
-        print(f"\tThe processed <{app}> descriptor data {data_table_prep.shape} has been saved to <{out_csv_prep}>.")
+    ## save merged desc
+    print(f"\tThe merged data table has <{dataTable_desc_prep_merged.shape[0]}> molecules and <{dataTable_desc_prep_merged.shape[1]-1}> descriptors")
+    out_csv_prep_merged = f"{folderPathOut}/descriptors_prep_merged.csv"
+    dataTable_desc_prep_merged.to_csv(out_csv_prep_merged, index=False)
+    print(f"\tThe prepared <all> descriptor data {dataTable_desc_prep_merged.shape} has been saved to <{out_csv_prep_merged}>.")
+    
 
     ## ------------------- param file save to json -------------------
     import json
-    json_file_norm_param = f"{folderPathOut}/descriptor_normalization_params.dict"
+    json_file_norm_param = f"{folderPathOut}/feature_normalization_params.dict"
     with open(json_file_norm_param, 'w') as npdfh:
         json.dump(dict_norm_param_all, npdfh)
         print(f"\tThe normalization paramater data has been saved to <{json_file_norm_param}>.")
     
-    json_file_imput_param = f"{folderPathOut}/descriptor_imputation_params.dict"
+    json_file_imput_param = f"{folderPathOut}/feature_imputation_params.dict"
     with open(json_file_imput_param, 'w') as ipdfh:
         json.dump(dict_imput_param_all, ipdfh)
         print(f"\tThe normalization paramater data has been saved to <{json_file_imput_param}>.")

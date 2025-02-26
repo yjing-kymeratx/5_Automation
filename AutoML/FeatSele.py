@@ -1,19 +1,5 @@
 '''
---input     './results'
---delimiter ','
---colId     'Compound Name'
-
---desc_custom       True
---desc_rdkit        True
---desc_fps      True
---desc_cx       True
-
---modelType     'regression'    # 'classification'
-
---MissingValueFilter        True
---VarianceFilter        True
---L2Filter      True
---FeatureImportanceFilter       True
+To be added
 '''
 
 ####################################################################
@@ -44,7 +30,7 @@ def missingValueFilter(desc_all, json_file_imput_param, nan_cutoff=0.2):
                 else:
                     nan_ratio_dict[desc]['Select'] = 'No'
         ## print results
-        print(f"\t\tIn total <{len(nan_ratio_dict)}> desc, there are <{len(desc_sele)}> selected, cutoff is {nan_cutoff}.")
+        print(f"\t\tIn total <{len(desc_all)}> desc, there are <{len(desc_sele)}> selected, cutoff is {nan_cutoff}.")
     else:
         print(f"Error! The imputation param file {json_file_imput_param} does not exist")
 
@@ -74,11 +60,11 @@ def VarianceFilter(X, threshold=0):
             variance_dict[i]['Select'] = 'No'
     variance_table = pd.DataFrame.from_dict(variance_dict).T
     ## print results
-    print(f"\t\tIn total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected, cutoff is {threshold}.")
+    print(f"\t\tVarianceFilter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected, cutoff is {threshold}.")
     return variance_table, desc_sele
 
 ## ------------ L2-based Filter ------------
-def L2_based_selection(X, y, model_type='regression', penalty_param=0.01):
+def L2_based_selection(X, y, model_type='regression', penalty_param=0.0001):
     import pandas as pd
     ## define estimator model
     if model_type == 'regression':
@@ -115,7 +101,7 @@ def L2_based_selection(X, y, model_type='regression', penalty_param=0.01):
         print(f"Error! The desc (N={len(desc_list)}) does not match the coef scores (N={len(scores)})")
 
     ## print results
-    print(f"\t\tIn total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected.")
+    print(f"\t\tL2 filter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected.")
     coef_table = pd.DataFrame.from_dict(coef_dict).T
     return coef_table, desc_sele
 
@@ -157,7 +143,7 @@ def RF_based_selection(X, y, model_type='regression', penalty_param=0.01):
         print(f"Error! The desc (N={len(desc_list)}) does not match the feature importance (N={len(scores)})")
 
     ## print results
-    print(f"\t\tIn total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected.")
+    print(f"\t\tRF filter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected.")
     FI_table = pd.DataFrame.from_dict(FI_dict).T
     return FI_table, desc_sele
 
@@ -168,19 +154,19 @@ def RF_based_selection(X, y, model_type='regression', penalty_param=0.01):
 def Args_Prepation(parser_desc):
     import argparse
     parser = argparse.ArgumentParser(description=parser_desc)
-    
-    parser.add_argument('-i', '--input', action="store", default='./results', help='The input folder of all desciptor files')
+
+    # parser.add_argument('-i', '--input', action="store", default='./results', help='The input folder of all desciptor files')
+    parser.add_argument('-x', '--desc', action="store", default="./results/descriptors_prep_merged.csv", help='The input file of the desciptor file')
+    parser.add_argument('-y', '--expt', action="store", default="./results/outcome_expt.csv", help='The input file of the experiment outcome file')
+    parser.add_argument('-s', '--split', action="store", default="./results/data_split_diverse.csv", help='The input file of the train/val/test split file')    
     parser.add_argument('-d', '--delimiter', action="store", default=',', help='The delimiter of input csv file for separate columns')
     parser.add_argument('--colId', action="store", default='Compound Name', help='The column name of the compound identifier')
-
-    parser.add_argument('--desc_custom', action="store", default="True", help='use the custom descriptors')
-    parser.add_argument('--desc_rdkit', action="store", default="True", help='use the molecular property using RDKit')
-    parser.add_argument('--desc_fps', action="store", default="True", help='use the molecular fingerprints')
-    parser.add_argument('--desc_cx', action="store", default="True", help='use the molecular property using ChemAxon')
+    parser.add_argument('--coly', action="store", default=None, help='The column name of the experiment outcome')
+    parser.add_argument('--cols', action="store", default='Split', help='The column name of the split')
 
     parser.add_argument('--modelType', action="store", default="Regression", help='ML model type, either <regression> or <classification>')
-
     parser.add_argument('--MissingValueFilter', action="store", default="True", help='remove the descriptor with a lot of missing values')
+    parser.add_argument('--ImputationParamFile', action="store", default="./results/feature_imputation_params.dict", help='remove the descriptor with a lot of missing values')
     parser.add_argument('--VarianceFilter', action="store", default="True", help='remove the descriptor with low variance')
     parser.add_argument('--L2Filter', action="store", default="True", help='feature selection using linear Lasso method')
     parser.add_argument('--FIFilter', action="store", default="True", help='feature selection using RF feature importance')
@@ -194,53 +180,49 @@ def Args_Prepation(parser_desc):
 ######################### main function ############################
 ####################################################################
 def main():
+    print(f">>>>Selecting important Descriptors ...")
     ## ------------ load args ------------
     args = Args_Prepation(parser_desc='Feature selection')
     if True:
-        desc_folder = args.input    #'./results'
+        input_X = args.desc
+        input_y = args.expt
+        input_split = args.split
         sep = args.delimiter    # ',' 
         colName_mid = args.colId    # 'Compound Name'
-        desc_custom = True if args.desc_custom=="True" else False
-        desc_rdkit = True if args.desc_rdkit=="True" else False
-        desc_fps = True if args.desc_fps=="True" else False
-        desc_cx = True if args.desc_cx=="True" else False
+        colName_split = args.cols
+        colName_y = args.coly
+
         model_type = args.modelType    # 'regression', 'classification'
         doMissingValueFilter = True if args.MissingValueFilter=="True" else False
+        json_file_imput_param = args.ImputationParamFile
         doVarianceFilter = True if args.VarianceFilter=="True" else False
         doL2Filter = True if args.L2Filter=="True" else False
-        doFeatureImportanceFilter = True if args.FIFilter=="True" else False        
-        folderPathOut = args.output    ## './results'
+        doFeatureImportanceFilter = True if args.FIFilter=="True" else False   
 
-        ## 
-        descType_list = []
-        if desc_custom:
-            descType_list.append('custom')
-        if desc_rdkit:
-            descType_list.append('rdkit')
-        if desc_fps:
-            descType_list.append('fingerprints')
-        if desc_cx:
-            descType_list.append('chemaxon')
-        print(f"\tSelected descriptors types: {descType_list}")
+        import os
+        folderPathOut = args.output    ## './results'
+        os.makedirs(folderPathOut, exist_ok=True)    
 
     ## ------------ load data ------------
-    import pandas as pd
-    ## load the expt outcome
-    dataTable_y = pd.read_csv(f'{desc_folder}/outcome_expt.csv', sep=sep)
-    print(f"\tThe experiment outcome table has shape {dataTable_y.shape}")
-
     ## load all descriptor tables and merge together
-    import copy
-    dataTable_merged = copy.deepcopy(dataTable_y)
-    for descType in descType_list:
-        dataTable = pd.read_csv(f'{desc_folder}/descriptors_{descType}_processed.csv') 
-        print(f"\tThere are total <{dataTable.shape[1]-1}> {descType} descriptors for <{dataTable.shape[0]}> molecules")
-        dataTable_merged = dataTable_merged.merge(right=dataTable, on='Compound Name', how='left')
-    print(f"\tThe merged data table has <{dataTable_merged.shape[0]}> molecules and <{dataTable_merged.shape[1]-1}> descriptors")
+    import pandas as pd
+    dataTable_s = pd.read_csv(input_split, sep=sep, usecols=[colName_mid, colName_split])
+    dataTable_y = pd.read_csv(input_y, sep=sep, usecols=[colName_mid, colName_y])
+    dataTable_X = pd.read_csv(input_X, sep=sep)
+    print(f"\tLoading split DataFrame: <{dataTable_s.shape}>, y DataFrame: <{dataTable_y.shape}>, X DataFrame: <{dataTable_X.shape}>")
+
+    dataTable_merged_all = pd.merge(left=dataTable_s, right=dataTable_y, on=colName_mid, how='inner')
+    dataTable_merged_all = dataTable_merged_all.merge(right=dataTable_X, on=colName_mid, how='inner')
+    print(f"\tThe merged table has shape {dataTable_merged_all.shape}")
+
+    ## select the training&validation data
+    dataTable_merged = dataTable_merged_all[~(dataTable_merged_all[colName_split].isin(['Test']))]
+    # dataTable_merged = dataTable_merged.drop(columns=[colName_split])
+    print(f"\tThe training/validation table has shape {dataTable_merged.shape}")
 
     ## get descriptors (X) and outcome (y)
-    assert dataTable_merged.columns[0] == colName_mid, f"\tError! Make sure the 1st column in the desc/expt fileis <{colName_mid}>"
-    X, y = dataTable_merged.iloc[:, 2:], dataTable_merged.iloc[:, 1:2]
+    colNames_X = [desc for desc in dataTable_X.columns if desc != colName_mid]
+    X, y = dataTable_merged[colNames_X], dataTable_merged[colName_y]
     print(f"\tX has shape {X.shape}, y has shape {y.shape}")
 
     ## ------------ filters ------------
@@ -249,64 +231,46 @@ def main():
     ## remove descriptors with too many missing data
     if doMissingValueFilter:
         print(f"\tremove descriptors with too many missing data")
-        json_file_imput_param = f"{desc_folder}/descriptor_imputation_params.dict"
         score_table_dict['MissingValueFilter'], desc_sele = missingValueFilter(list(X.columns), json_file_imput_param, nan_cutoff=0.2)
         X = X[desc_sele]
-        for col in list(dataTable_merged.columns):
-            if col not in desc_sele:
-                if col not in desc_drop:
-                    desc_drop.append(col)
 
     ## Variance-based Filter
     if doVarianceFilter:
         print(f"\tremove descriptors with too low variance")
         score_table_dict['VarianceFilter'], desc_sele = VarianceFilter(X=X, threshold=0.0001)
         X = X[desc_sele]
-        for col in list(dataTable_merged.columns):
-            if col not in desc_sele:
-                if col not in desc_drop:
-                    desc_drop.append(col)
 
     ## L2-based Filter
     if doL2Filter:
         print(f"\tremove descriptors with L2 regulization")
         score_table_dict['L2Filter'], desc_sele = L2_based_selection(X=X, y=y, model_type=model_type)
-        for col in list(dataTable_merged.columns):
-            if col not in desc_sele:
-                if col not in desc_drop:
-                    desc_drop.append(col)
+        X = X[desc_sele]
 
     ## RF-based Filter
     if doFeatureImportanceFilter:
         print(f"\tremove descriptors with RF feature importance")
         score_table_dict['FIFilter'], desc_sele = RF_based_selection(X=X, y=y, model_type=model_type)
-        for col in list(dataTable_merged.columns):
-            if col not in desc_sele:
-                if col not in desc_drop:
-                    desc_drop.append(col)
 
-    ## merge all score tables and save to csv
-    score_table_merged = pd.DataFrame(columns=['Descriptor'])
-    for filterType in score_table_dict:
-        this_Table = score_table_dict[filterType]
-        this_Table.to_csv(f"{folderPathOut}/feature_scoring_{filterType}.csv", index=False)
-        
-        this_Table = this_Table.rename(columns={'Select': f'select_{filterType}'})
-        score_table_merged = score_table_merged.merge(right=this_Table, on='Descriptor', how='outer')
-        
-    fileNameOut_FSscore = f"{folderPathOut}/feature_scoring_merged.csv"
-    score_table_merged.to_csv(fileNameOut_FSscore, index=False)
-    print(f"\tThe merged table contains all feature selection scores is saved to <{fileNameOut_FSscore}>")
-
-    ## clean the dataset
-    cols_y = list(dataTable_y.columns)
-    cols_X = [col for col in list(dataTable_merged.columns) if col not in desc_drop]
-    print(f"\tThere are total <{len(cols_X)}> descriptors selected for ML modeling")
-    dataTable_merged_clean = dataTable_merged[cols_y + cols_X]
-
+    ## ------------------ clean the dataset ------------------
+    dataTable_merged_clean = dataTable_merged_all[[colName_mid, colName_split, colName_y] + desc_sele]
+    print(f"\tThere are total <{len(desc_sele)}> descriptors selected for ML modeling")
     fileNameOut_4ML = f"{folderPathOut}/data_input_4_ModelBuilding.csv"
     dataTable_merged_clean.to_csv(fileNameOut_4ML, index=False)
     print(f"\tThe cleaned data table for ML model building is saved to <{fileNameOut_4ML}>")
+
+    ## ------------------ merge all stats tables and save to csv ------------------
+    score_table_merged = pd.DataFrame(columns=['Descriptor'])
+    for filterType in score_table_dict:
+        this_Table = score_table_dict[filterType]
+        # this_Table.to_csv(f"{folderPathOut}/feature_scoring_{filterType}.csv", index=False)
+        
+        this_Table = this_Table.rename(columns={'Select': f'select_{filterType}'})
+        score_table_merged = score_table_merged.merge(right=this_Table, on='Descriptor', how='outer')
+
+    score_table_merged['Select_final'] = score_table_merged['Descriptor'].apply(lambda x: 'No' if x in desc_drop else 'Yes')
+    fileNameOut_FSscore = f"{folderPathOut}/feature_scoring.csv"
+    score_table_merged.to_csv(fileNameOut_FSscore, index=False)
+    print(f"\tThe merged table contains all feature selection scores is saved to <{fileNameOut_FSscore}>")
 
 if __name__ == '__main__':
     main()

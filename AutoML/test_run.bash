@@ -22,7 +22,7 @@ resultDir="$JobDir/results"
 
 ## ------------------ step-1 csv loader & data clean ------------------
 # fileInS1="$JobDir/Data/DataView_MDCK_MDR1__Permeability_1__export.csv"
-fileInS1="$JobDir/Data/DataView_MDCK_MDR1__Permeability_1__export_top40.csv"
+fileInS1="$JobDir/Data/DataView_MDCK_MDR1__Permeability_1__export_top30.csv"
 colId='Compound Name'
 colSmi='Structure'
 colAssay='ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);(Num)'
@@ -59,21 +59,21 @@ folderOutS3="$resultDir"
 $bash2py python "$JobDir"/DescGen.py -i "$fileInS3" -d ',' --colId "$colId" --colSmi "$colSmi" --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" --colPreCalcDesc "$colPreCalcDesc" --norm "$norm" --imput "$imput" -o "$folderOutS3"
 
 ## ------------------ step-4 feature selection ------------------
-folderInS4="$resultDir"
+fileInS4_X="$resultDir/descriptors_prep_merged.csv"
+fileInS4_y="$resultDir/outcome_expt.csv"
+fileInS4_S="$resultDir/data_split_$split.csv"
 colId="$colId"
-desc_custom="True"
-desc_rdkit="True"
-desc_fps="True"
-desc_cx="True"
-
+colAssay="$colAssay"
+cols="Split"
 modelType="regression"    ## "regression" or "classification"
-
 nanFilter="True"
+ImputParamFile="$resultDir/feature_imputation_params.dict"
 VFilter="True"
 L2Filter="True"
 FIFilter="True"
 folderOutS4="$resultDir"
-$bash2py python "$JobDir"/FeatSele.py -i "$folderInS4" -d ',' --colId "$colId" --desc_custom "$desc_custom" --desc_rdkit "$desc_rdkit" --desc_fps "$desc_fps" --desc_cx "$desc_cx" --modelType "$modelType" --MissingValueFilter "$nanFilter" --VarianceFilter "$VFilter" --L2Filter "$L2Filter" --FIFilter "$FIFilter" -o "$folderOutS4"
+
+$bash2py python "$JobDir"/FeatSele.py -x "$fileInS4_X" -y "$fileInS4_y" -s "$fileInS4_S" -d ',' --colId "$colId" --coly "$colAssay" --cols "$cols" --modelType "$modelType" --MissingValueFilter "$nanFilter" --ImputationParamFile "$ImputParamFile" --VarianceFilter "$VFilter" --L2Filter "$L2Filter" --FIFilter "$FIFilter" -o "$folderOutS4"
 
 ## ------------------ step-5 ML modeling ------------------
 
