@@ -166,12 +166,12 @@ def Args_Prepation(parser_desc):
 
     parser.add_argument('--modelType', action="store", default="Regression", help='ML model type, either <regression> or <classification>')
     parser.add_argument('--MissingValueFilter', action="store", default="True", help='remove the descriptor with a lot of missing values')
-    parser.add_argument('--ImputationParamFile', action="store", default="./results/feature_imputation_params.dict", help='remove the descriptor with a lot of missing values')
+    parser.add_argument('--impuParamJson', action="store", default="./results/feature_imputation_params.json", help='remove the descriptor with a lot of missing values')
     parser.add_argument('--VarianceFilter', action="store", default="True", help='remove the descriptor with low variance')
     parser.add_argument('--L2Filter', action="store", default="True", help='feature selection using linear Lasso method')
     parser.add_argument('--FIFilter', action="store", default="True", help='feature selection using RF feature importance')
 
-    parser.add_argument('-o', '--output', action="store", default="./results", help='the output folder')
+    parser.add_argument('-o', '--output', action="store", default="./Results/data_input_4_ModelBuilding.csv", help='save the selected desc csv file')
 
     args = parser.parse_args()
     return args
@@ -194,14 +194,16 @@ def main():
 
         model_type = args.modelType    # 'regression', 'classification'
         doMissingValueFilter = True if args.MissingValueFilter=="True" else False
-        json_file_imput_param = args.ImputationParamFile
+        json_file_imput_param = args.impuParamJson
         doVarianceFilter = True if args.VarianceFilter=="True" else False
         doL2Filter = True if args.L2Filter=="True" else False
         doFeatureImportanceFilter = True if args.FIFilter=="True" else False   
 
+        ## output folder
         import os
-        folderPathOut = args.output    ## './results'
-        os.makedirs(folderPathOut, exist_ok=True)    
+        filePathOut = args.output 
+        folderPathOut = os.path.dirname(filePathOut)    ## './results'
+        os.makedirs(folderPathOut, exist_ok=True)   
 
     ## ------------ load data ------------
     ## load all descriptor tables and merge together
@@ -227,7 +229,6 @@ def main():
 
     ## ------------ filters ------------
     score_table_dict = {}
-    desc_drop = []
     ## remove descriptors with too many missing data
     if doMissingValueFilter:
         print(f"\tremove descriptors with too many missing data")
@@ -237,7 +238,7 @@ def main():
     ## Variance-based Filter
     if doVarianceFilter:
         print(f"\tremove descriptors with too low variance")
-        score_table_dict['VarianceFilter'], desc_sele = VarianceFilter(X=X, threshold=0.0001)
+        score_table_dict['VarianceFilter'], desc_sele = VarianceFilter(X=X, threshold=0.001)
         X = X[desc_sele]
 
     ## L2-based Filter
@@ -250,24 +251,23 @@ def main():
     if doFeatureImportanceFilter:
         print(f"\tremove descriptors with RF feature importance")
         score_table_dict['FIFilter'], desc_sele = RF_based_selection(X=X, y=y, model_type=model_type)
+        X = X[desc_sele]
 
     ## ------------------ clean the dataset ------------------
     dataTable_merged_clean = dataTable_merged_all[[colName_mid, colName_split, colName_y] + desc_sele]
     print(f"\tThere are total <{len(desc_sele)}> descriptors selected for ML modeling")
-    fileNameOut_4ML = f"{folderPathOut}/data_input_4_ModelBuilding.csv"
-    dataTable_merged_clean.to_csv(fileNameOut_4ML, index=False)
-    print(f"\tThe cleaned data table for ML model building is saved to <{fileNameOut_4ML}>")
+    dataTable_merged_clean.to_csv(filePathOut, index=False)
+    print(f"\tThe cleaned data table for ML model building is saved to <{filePathOut}>")
 
     ## ------------------ merge all stats tables and save to csv ------------------
     score_table_merged = pd.DataFrame(columns=['Descriptor'])
     for filterType in score_table_dict:
         this_Table = score_table_dict[filterType]
-        # this_Table.to_csv(f"{folderPathOut}/feature_scoring_{filterType}.csv", index=False)
         
         this_Table = this_Table.rename(columns={'Select': f'select_{filterType}'})
         score_table_merged = score_table_merged.merge(right=this_Table, on='Descriptor', how='outer')
 
-    score_table_merged['Select_final'] = score_table_merged['Descriptor'].apply(lambda x: 'No' if x in desc_drop else 'Yes')
+    score_table_merged['Select_final'] = score_table_merged['Descriptor'].apply(lambda x: 'Yes' if x in desc_sele else 'No')
     fileNameOut_FSscore = f"{folderPathOut}/feature_scoring.csv"
     score_table_merged.to_csv(fileNameOut_FSscore, index=False)
     print(f"\tThe merged table contains all feature selection scores is saved to <{fileNameOut_FSscore}>")

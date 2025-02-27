@@ -134,14 +134,16 @@ def Args_Prepation(parser_desc):
     parser.add_argument('-d', '--delimiter', action="store", default=',', help='The delimiter of input csv file for separate columns')
     parser.add_argument('--colId', action="store", default='Compound Name', help='The column name of the compound identifier')
     parser.add_argument('--colSmi', action="store", default='Structure', help='The column name of the compound smiles')
-    parser.add_argument('--colDate', action="store", default='Created On', help='The column names of the date')
+    parser.add_argument('--colDate', action="store", default=None, help='The column names of the date')
     parser.add_argument('-s', '--split', action="store", default='random', help='The split method. select from [random, temporal, diverse]')
+    parser.add_argument('--cols', action="store", default='Split', help='The column name of the split')
+
 
     parser.add_argument('--CV', action="store", default=10, help='The Cross-validation fold for split')
     parser.add_argument('--rng', action="store", default=666666, help='The random seed of random selection')
     parser.add_argument('--hasVal', action="store", default=True, help='If separate a validation set')
 
-    parser.add_argument('-o', '--output', action="store", default="./results", help='the output folder')
+    parser.add_argument('-o', '--output', action="store", default="./Results/data_split.csv", help='save the splited csv file')
 
     args = parser.parse_args()
     return args
@@ -172,8 +174,10 @@ def main():
     rng = int(args.rng)
     hasVal = bool(args.hasVal)
 
-    folderPathOut = args.output    ## './results'
-
+    filePathOut = args.output
+    import os
+    folderPathOut = os.path.dirname(filePathOut)    ## './results'
+    os.makedirs(folderPathOut, exist_ok=True)
 
     ## ------------ load data ------------
     import pandas as pd
@@ -193,7 +197,8 @@ def main():
 
     ## ------------ calculate mol fingerprints ------------
     elif split_method == 'temporal':
-        assert colName_date in dataTable_raw.columns, f"\tColumn name for date <{colName_date}> is not in the table."
+        assert colName_date is not None, f"\tColumn name for date <{colName_date}> should not be None when using {split_method} split"
+        assert colName_date in dataTable_raw.columns, f"\tColumn name for date <{colName_date}> should be in the table column when using {split_method} split"
         dataTable_split = nFoldSplit_temporal(dataTable_raw, colName_mid, colName_date, CV=CV, hasVal=hasVal)
 
     ## ------------ calculate chemAxon properties ------------
@@ -202,10 +207,8 @@ def main():
         dataTable_split = nFoldSplit_diverse(dataTable_raw, colName_mid, colName_smi, CV=CV, rng=rng, hasVal=hasVal)
 
     ## ------------ save the split ------------
-    import os
-    output_folder = folderPathOut
-    os.makedirs(output_folder, exist_ok=True)
-    dataTable_split.to_csv(f"{output_folder}/data_split_{split_method}.csv", index=False)
+    dataTable_split.to_csv(filePathOut, index=False)
+    print(f"\tThe cleaned data table has been saved to {filePathOut}")
 
 if __name__ == '__main__':
     main()

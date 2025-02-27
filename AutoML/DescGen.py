@@ -385,7 +385,7 @@ def descriptor_norm(dataTable, cols_ignore):
             try:
                 desc_values = dataTable_norm[col].to_numpy()
                 v_mean, v_std, v_max, v_min = _calc_z_score(desc_values)
-                dataTable_norm[col] = (dataTable_norm[col] - v_mean)/ v_std if v_std !=0 else 0
+                dataTable_norm[col] = 0 if v_std ==0 else (dataTable_norm[col] - v_mean)/ v_std
             except Exception as e:
                 print(f"Warning! This desc <{col}> cannot be normalized using Z-score! Error msg: {e}")
             else:
@@ -444,7 +444,7 @@ def Args_Prepation(parser_desc):
 
     parser.add_argument('--norm', action="store", default="True", help='normalize the descriptors (z-score)')
     parser.add_argument('--imput', action="store", default="True", help='impute the descriptors')
-    parser.add_argument('-o', '--output', action="store", default="./results", help='the output folder')
+    parser.add_argument('-o', '--output', action="store", default="./Results/descriptors_prep_merged.csv", help='save the desc csv file')
 
     args = parser.parse_args()
     return args
@@ -476,15 +476,17 @@ def main():
         do_norm = True if args.norm=='True' else False
         do_imputation = True if args.imput=='True' else False
         
+        ## output folder
+        import os
+        filePathOut = args.output 
+        folderPathOut = os.path.dirname(filePathOut)    ## './results'
+        os.makedirs(folderPathOut, exist_ok=True)   
 
         ## descriptor calculation params
-        rd_physChem, rd_subStr, rd_clean = True, True, True
-        fp_radius, fp_nBits = 3, 2048
-        cx_version, cx_desc = 'V22', 'all'
-
-        import os
-        folderPathOut = args.output    ## './results'
-        os.makedirs(folderPathOut, exist_ok=True)
+        desc_calc_param = {'rd_physChem': True, 'rd_subStr': True, 'rd_clean': True, 
+                           'fp_radius': 3, 'fp_nBits': 2048, 
+                           'cx_version': 'V22', 'cx_desc': 'all'}
+        
 
     ## ------------ load data ------------
     import pandas as pd
@@ -499,7 +501,7 @@ def main():
     if desc_rdkit:
         app = 'rdkit'
         print(f"\t\tNow calculating the <{app}> descriptors")
-        calculator_rd = desc_calculator_rdkit(physChem=rd_physChem, subStr=rd_subStr, clean=rd_clean)
+        calculator_rd = desc_calculator_rdkit(physChem=desc_calc_param['rd_physChem'], subStr=desc_calc_param['rd_subStr'], clean=desc_calc_param['rd_clean'])
         result_dict_rd = calc_desc_from_table(dataTable_raw, colName_mid, colName_smi, calculator_rd)
              
         table_dict[app] = pd.DataFrame.from_dict(result_dict_rd).T
@@ -510,7 +512,7 @@ def main():
     if desc_fps:
         app = 'fingerprints'
         print(f"\tNow calculating the molecular <{app}> descriptors")
-        calculator_fp = desc_calculator_morganFPs(radius=fp_radius, nBits=fp_nBits)
+        calculator_fp = desc_calculator_morganFPs(radius=desc_calc_param['fp_radius'], nBits=desc_calc_param['fp_nBits'])
         result_dict_fp = calc_desc_from_table(dataTable_raw, colName_mid, colName_smi, calculator_fp)
 
         table_dict[app] = pd.DataFrame.from_dict(result_dict_fp).T
@@ -521,55 +523,62 @@ def main():
     if desc_cx:
         app = 'chemaxon'
         print(f"\tNow calculating the molecular <{app}> descriptors")
-        calculator_cx = desc_calculator_chemaxon(version=cx_version, desc_list=cx_desc)
+        calculator_cx = desc_calculator_chemaxon(version=desc_calc_param['cx_version'], desc_list=desc_calc_param['cx_desc'])
         result_dict_cx= calc_desc_from_table(dataTable_raw, colName_mid, colName_smi, calculator_cx)
 
-        table_dict[app] = pd.DataFrame.from_dict(result_dict_fp).T
-        table_dict[app].to_csv(f"{folderPathOut}/descriptors_{app}_raw.csv", index=False)
-        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.")
+        table_dict[app] = pd.DataFrame.from_dict(result_dict_cx).T
+        table_dict[app].to_csv(f"{folderPathOut}/descriptors_raw_{app}.csv", index=False)
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>.")
     
     ## ------------ extract the custom desc ------------
     if colName_custom_desc is not None:
         app = 'custom'
         print(f"\tNow extracting the <{app}> descriptors")
         table_dict[app] = extract_custom_desc(dataTable_raw, colName_mid, colName_custom_desc)
-        table_dict[app].to_csv(f"{folderPathOut}/descriptors_{app}_raw.csv", index=False)
-        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.")
+        table_dict[app].to_csv(f"{folderPathOut}/descriptors_raw_{app}.csv", index=False)
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>.")
 
     ## ------------ process & merge output ------------
-    dataTable_desc_prep_merged = pd.DataFrame(columns=[colName_mid])
-    dict_norm_param_all, dict_imput_param_all = {}, {}
+    dataTable_desc_merged = pd.DataFrame(columns=[colName_mid])
     for app in table_dict:
-        data_table_raw = table_dict[app]
         data_table_prep = table_dict[app]
-        ## ------------------- normalization -------------------
-        if do_norm and app not in ['fingerprints']:
-            data_table_prep, dict_norm_param = descriptor_norm(data_table_prep, cols_ignore=[colName_mid])
-            dict_norm_param_all.update(dict_norm_param)
-
-        ## ------------------- imputation -------------------
-        if do_imputation:
-            data_table_prep, dict_imput_param = descriptor_imputation(data_table_prep, cols_ignore=[colName_mid], descType=app)
-            dict_imput_param_all.update(dict_imput_param)
-
         ## merge
-        dataTable_desc_prep_merged = dataTable_desc_prep_merged.merge(right=data_table_prep, on='Compound Name', how='outer')
+        dataTable_desc_merged = dataTable_desc_merged.merge(right=data_table_prep, on='Compound Name', how='outer')
+    print(f"\tThe merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors")
+    
+    ## ------------------- normalization -------------------
+    dict_norm_param_all = {}
+    if do_norm:
+        cols_ignore = [colName_mid] + [col for col in dataTable_desc_merged.columns if col[:3]=='fp_']
+        dataTable_desc_merged, dict_norm_param = descriptor_norm(dataTable_desc_merged, cols_ignore=cols_ignore)
+        dict_norm_param_all.update(dict_norm_param)
+
+    ## ------------------- imputation -------------------
+    dict_imput_param_all = {}
+    if do_imputation:
+        dataTable_desc_merged, dict_imput_param = descriptor_imputation(dataTable_desc_merged, cols_ignore=[colName_mid], descType=app)
+        dict_imput_param_all.update(dict_imput_param)
 
     ## save merged desc
-    print(f"\tThe merged data table has <{dataTable_desc_prep_merged.shape[0]}> molecules and <{dataTable_desc_prep_merged.shape[1]-1}> descriptors")
-    out_csv_prep_merged = f"{folderPathOut}/descriptors_prep_merged.csv"
-    dataTable_desc_prep_merged.to_csv(out_csv_prep_merged, index=False)
-    print(f"\tThe prepared <all> descriptor data {dataTable_desc_prep_merged.shape} has been saved to <{out_csv_prep_merged}>.")
+    print(f"\tAfter normalization & imputation, the merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors")
+    dataTable_desc_merged.to_csv(filePathOut, index=False)
+    print(f"\tThe prepared <all> descriptor data {dataTable_desc_merged.shape} has been saved to <{filePathOut}>.")
     
 
     ## ------------------- param file save to json -------------------
     import json
-    json_file_norm_param = f"{folderPathOut}/feature_normalization_params.dict"
+    json_file_calc_param = f"{folderPathOut}/feature_calculator_param.json"
+    with open(json_file_calc_param, 'w') as ofh_dpfh:
+        json.dump(desc_calc_param, ofh_dpfh)
+        print(f"\tThe calculator paramater data has been saved to <{json_file_calc_param}>.")
+
+    import json
+    json_file_norm_param = f"{folderPathOut}/feature_normalization_params.json"
     with open(json_file_norm_param, 'w') as npdfh:
         json.dump(dict_norm_param_all, npdfh)
         print(f"\tThe normalization paramater data has been saved to <{json_file_norm_param}>.")
     
-    json_file_imput_param = f"{folderPathOut}/feature_imputation_params.dict"
+    json_file_imput_param = f"{folderPathOut}/feature_imputation_params.json"
     with open(json_file_imput_param, 'w') as ipdfh:
         json.dump(dict_imput_param_all, ipdfh)
         print(f"\tThe normalization paramater data has been saved to <{json_file_imput_param}>.")
@@ -578,3 +587,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    

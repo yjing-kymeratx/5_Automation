@@ -63,25 +63,29 @@ def load_csv(fileNameIn, sep, detect_encoding=False):
     return dataTable
 
 ## ---------------- clean csv by rm NaNs and dups ----------------
-def clean_csv(dataTable, cols_basic, cols_data, cols_mod=None):
+def clean_csv(dataTable, cols_basic, col_y=None, col_ymod=None):
     print(f"\t==>Now cleanning the csv...")
     ## remove NaN on essential cols
-    for col in cols_basic+cols_data:
+    for col in cols_basic:
         assert col in dataTable.columns, f"\tError! Column <{col}> is not in the table!"
-    dataTable = dataTable.dropna(subset=cols_basic+cols_data)
-    print(f"\tAfter removing NaNs, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
+    dataTable = dataTable.dropna(subset=cols_basic)
+    print(f"\tAfter removing NaNs in {cols_basic}, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
     
     ## remove Duplicates on essential
     dataTable = dataTable.drop_duplicates(subset=cols_basic)
     print(f"\tAfter removing duplicates, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
 
-    ## 
-    if cols_mod is not None:
-        for col_mod in cols_mod:
-            assert col_mod in dataTable.columns, f"\tError! Operator column <{col}> is not in the table!"
-            dataTable = dataTable[dataTable[col_mod].isin(['='])]
-    print(f"\tAfter filterring operators, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
+    ##
+    if col_y is not None:
+        assert col_y in dataTable.columns, f"\tError! expterimental(y) column <{col_y}> is not in the table!"
+        dataTable = dataTable.dropna(subset=col_y)
+        print(f"\tAfter removing NaNs in {col_y}, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
 
+        if col_ymod is not None:
+            assert col_ymod in dataTable.columns, f"\tError! Operator column <{col_ymod}> is not in the table!"
+            dataTable = dataTable[dataTable[col_ymod].isin(['='])]
+    
+    print(f"\tAfter filterring operators, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
     dataTable = dataTable.reset_index(drop=True)
     return dataTable
 
@@ -97,7 +101,7 @@ def _mute_warning_rdkit():
     lg.setLevel(RDLogger.CRITICAL)
     return None
 
-def _cleanUpSmiles(smi, canonical=True, errmsg=False):
+def cleanUpSmiles(smi, canonical=True, errmsg=False):
     from rdkit import Chem
     try:
         ## remove extended Smiles
@@ -128,7 +132,7 @@ def clean_smiles(dataTable, colName_smi, canonical=True, errmsg=False):
     print(f"\t==>Now cleanning the Smiles...")
     assert colName_smi in dataTable.columns, f"\tError! Column <{colName_smi}> is not in the table!"
     dataTable[f"{colName_smi}_original"] = dataTable[colName_smi]
-    dataTable[colName_smi] = dataTable[colName_smi].apply(lambda x: _cleanUpSmiles(x, canonical=canonical, errmsg=errmsg))
+    dataTable[colName_smi] = dataTable[colName_smi].apply(lambda x: cleanUpSmiles(x, canonical=canonical, errmsg=errmsg))
     return dataTable
 
 ################################################################################################
@@ -145,10 +149,11 @@ def Args_Prepation(parser_desc):
     parser.add_argument('--colId', action="store", default='Compound Name', help='The column name of the compound identifier')
     parser.add_argument('--colSmi', action="store", default='Structure', help='The column name of the compound smiles')
 
-    parser.add_argument('--colAssay', action="store", default='IC50', help='The column names of the assay values, only 1 column is accepted')
+    parser.add_argument('--colAssay', action="store", default=None, help='The column names of the assay values, max 1 column is accepted')
     parser.add_argument('--colAssayMod', action="store", default=None, help='The column names of the assay values operator, only 1 column is accepted')
 
-    parser.add_argument('-o', '--output', action="store", default="./results/data_input_clean.csv", help='save the cleaned csv file')
+    parser.add_argument('-o', '--output', action="store", default="./Results/data_input_clean.csv", help='save the cleaned csv file')
+    parser.add_argument('-oy', '--outputy', action="store", default="./Results/outcome_expt.csv", help='save the expert outcome csv file')
 
     args = parser.parse_args()
     return args
@@ -167,24 +172,30 @@ def main():
     colName_expt = args.colAssay    #'ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);(Num)'
     colName_expt_operator = args.colAssayMod    # 'ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);(Mod)'    ## None
 
-    filePathOut = args.output    ## 'Concat;Project'   
+    filePathOut = args.output    ## 'Concat;Project' 
+    ofileName_y = args.outputy
 
+    ## ---------- read data ----------
     dataTable = load_csv(fileNameIn, sep=sep, detect_encoding=detect_encoding)
+
+    ## ---------- clean smiles ----------
     dataTable = clean_smiles(dataTable, colName_smi=colName_smi, canonical=False, errmsg=False)
-    dataTable = clean_csv(dataTable, cols_basic=[colName_mid, colName_smi], cols_data=[colName_expt], cols_mod=[colName_expt_operator])
-    dataTable_y = dataTable[[colName_mid, colName_expt]]
-    
+    dataTable = clean_csv(dataTable, cols_basic=[colName_mid, colName_smi], col_y=colName_expt, col_ymod=colName_expt_operator)
+        
     ## save output
     import os
     folderPathOut = os.path.dirname(filePathOut)
     os.makedirs(folderPathOut, exist_ok=True)
     dataTable.to_csv(filePathOut, index=False)
     print(f"\tThe cleaned data table has been saved to {filePathOut}")
-    
+
     ## save the y output
-    ofileName_y = os.path.join(folderPathOut, f'outcome_expt.csv')
-    dataTable_y.to_csv(ofileName_y, index=False)
-    print(f"\tThe experiment outcome table has been saved to {ofileName_y}")
+    if colName_expt is not None:
+        dataTable_y = dataTable[[colName_mid, colName_expt]]        
+        # ofileName_y = os.path.join(folderPathOut, f'outcome_expt.csv')
+
+        dataTable_y.to_csv(ofileName_y, index=False)
+        print(f"\tThe experiment outcome table has been saved to {ofileName_y}")
 
 if __name__ == '__main__':
     main()
