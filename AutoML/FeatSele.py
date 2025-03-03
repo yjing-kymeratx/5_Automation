@@ -242,7 +242,7 @@ def main():
     else:
         score_table_dict['MissingValueFilter'], desc_sele = missingValueFilter(list(X.columns), json_file_imput_param, nan_cutoff=0.2)
         X = X[desc_sele]
-        
+
     ## Variance-based Filter
     if doVarianceFilter:
         print(f"\tremove descriptors with too low variance\n")

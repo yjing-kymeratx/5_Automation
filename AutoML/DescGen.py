@@ -472,9 +472,9 @@ def main():
         desc_fps = True if args.desc_fps=="True" else False
         desc_rdkit = True if args.desc_rdkit=="True" else False
         desc_cx = True if args.desc_cx=="True" else False
+        colName_custom_desc = args.colPreCalcDesc
         do_norm = True if args.norm=='True' else False
         do_imputation = True if args.imput=='True' else False
-        colName_custom_desc = args.colPreCalcDesc
         
         ## output folder
         import os
@@ -531,10 +531,9 @@ def main():
         print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>.\n")
     
     ## ------------ extract the custom desc ------------
-    print(colName_custom_desc)
     if colName_custom_desc != "NoCustomDescriptor":
         app = 'custom'
-        print(f"\tNow extracting the <{app}> descriptors\n")
+        print(f"\tNow extracting the custom <{app}> descriptors\n")
         table_dict[app] = extract_custom_desc(dataTable_raw, colName_mid, colName_custom_desc)
         table_dict[app].to_csv(f"{folderPathOut}/descriptors_raw_{app}.csv", index=False)
         print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>\n")
@@ -588,5 +587,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-    

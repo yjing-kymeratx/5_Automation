@@ -68,7 +68,7 @@ def step_1_model_init(ml_methed, n_jobs=-1, rng=666666):
 
 ## <===================== model training =====================>
 def _HyperParamSearch(sk_model, X, y, search_space=None, search_method='grid', scoring='neg_mean_absolute_error', nFolds=5, n_jobs=-1):
-    print(f"\t\tStart Hyper-Parameter Tunning ...")
+    print(f"\t\tStart Hyper-Parameter Tunning ...\n")
     SearchResults = {'best_model': None, 'best_score':None, 'best_param':None}
 
     # if search_method == 'grid':
@@ -86,8 +86,8 @@ def _HyperParamSearch(sk_model, X, y, search_space=None, search_method='grid', s
     SearchResults['best_param'] = optimizer.best_estimator_.get_params()
 
     ## export
-    print(f"\t\tThe best {scoring}: {SearchResults['best_score']}\n\t\tThe best hp-params: {SearchResults['best_param']}")
-    print(f"\t\tComplete Hyper-Parameter Tunning ...")
+    print(f"\t\tThe best {scoring}: {SearchResults['best_score']}\n\t\tThe best hp-params: {SearchResults['best_param']}\n")
+    print(f"\t\tComplete Hyper-Parameter Tunning ...\n")
     return SearchResults
 
 ##
@@ -109,7 +109,7 @@ def step_2_model_training(sk_model, X, y, logy=False, doHPT=False, search_space=
     sk_model.fit(X, y)
 
     ## ----------------------------------------------------------------        
-    print(f"\t\tThe model training costs time = {(time.time()-beginTime):.2f} s ................")
+    print(f"\t\tThe model training costs time = {(time.time()-beginTime):.2f} s ................\n")
     return sk_model
 
 ## <===================== model predict =====================>
@@ -134,13 +134,13 @@ def step_4_make_comparison(y_pred, y_true, dsLabel='dataset'):
         dataDict_evaluation[f'Spearman_R2'] = float(spearmanr(y_pred, y_true)[0])**2    ## rank-order correlation
         dataDict_evaluation[f'KendallTau_R2'] = float(kendalltau(y_pred, y_true)[0])**2        ## Kendall's tau
     except Exception as e:
-        print(f"\t\tCannot compare y_pred & y_true: {e}")
+        print(f"\t\tCannot compare y_pred & y_true: {e}\n")
     else:          
         ## print out the results
         mae = round(dataDict_evaluation[f'MAE'], 2)
         pr2 = round(dataDict_evaluation[f'Pearson_R2'], 2)
         sr2 = round(dataDict_evaluation[f'Spearman_R2'], 2)
-        print(f"\t\t{dsLabel}=> MAE: {mae}; Pearson-R2: {pr2}; Spearman-R2: {sr2}")
+        print(f"\t\t{dsLabel}=> MAE: {mae}; Pearson-R2: {pr2}; Spearman-R2: {sr2}\n")
         # print(f"\t\tKendall-R2: {dataDict_evaluation['KendallTau_R2']:.2f}")
     return dataDict_evaluation
 
@@ -377,7 +377,7 @@ def main():
     ## save
     fileNameOut_pred = f"{folderPathOut}/prediction_results.csv"
     dataTable_pred_all.to_csv(fileNameOut_pred, index=False)
-    print(f"\tThe prediction data are saved to <{fileNameOut_pred}>")
+    print(f"\tThe prediction data are saved to <{fileNameOut_pred}>\n")
 
     ## ------------ merge/concact & save performance data ------------
     dataDict_perform_all = {}
@@ -394,7 +394,7 @@ def main():
     ## save
     fileNameOut_perf = filePathOut    # f"{folderPathOut}/performance_results.csv"
     dataTable_perform_all.to_csv(fileNameOut_perf, index=False)
-    print(f"\tThe performance/evaluation data are saved to <{fileNameOut_perf}>")
+    print(f"\tThe performance/evaluation data are saved to <{fileNameOut_perf}>\n")
     
     ## ------------ find best model ------------
     # select_matrics, select_standar = 'Validation_MAE', 'min'
