@@ -400,7 +400,7 @@ def descriptor_norm(dataTable, cols_ignore):
 ####################################################################
 ######################### Imputation ###############################
 ####################################################################
-def descriptor_imputation(dataTable, cols_ignore, descType=None):
+def descriptor_imputation(dataTable, cols_ignore, descType=None, do_imputation=True):
     dict_imput_param = {}
     import copy
     import pandas as pd
@@ -411,9 +411,10 @@ def descriptor_imputation(dataTable, cols_ignore, descType=None):
             try:
                 median_values = dataTable_imput[col].median()
                 median_values = round(median_values) if descType in ['fingerprints'] else median_values
-                count_nan = int(dataTable_imput[col].isna().sum())
-                with pd.option_context('future.no_silent_downcasting', True):
-                    dataTable_imput[col] = dataTable_imput[col].fillna(median_values)
+                if do_imputation:
+                    count_nan = int(dataTable_imput[col].isna().sum())
+                    with pd.option_context('future.no_silent_downcasting', True):
+                        dataTable_imput[col] = dataTable_imput[col].fillna(median_values)
             except Exception as e:
                 print(f"Warning! This nan in desc <{col}> cannot be imputated using median ! Error msg: {e}\n")
             else:
@@ -449,21 +450,21 @@ def Args_Prepation(parser_desc):
     args = parser.parse_args()
     return args
 
-## Suppress RDKit warnings
-def mute_rdkit():
-    from rdkit import RDLogger
-    lg = RDLogger.logger()
-    lg.setLevel(RDLogger.CRITICAL)
-
-
-##
 ## 
 def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='Structure',
                desc_rdkit=True, desc_fps=True, desc_cx=True, desc_calc_param=None, do_norm=True, do_imputation=True,
                colName_custom_desc="NoCustomDescriptor", filePathOut="./Results/descriptors_prep_merged.csv"):
 
     print(f">>>>Generating Descriptors ...")
-    mute_rdkit()
+    ## Suppress RDKit warnings
+    from rdkit import RDLogger
+    lg = RDLogger.logger()
+    lg.setLevel(RDLogger.CRITICAL)
+
+    ## output folder
+    import os
+    folderPathOut = os.path.dirname(filePathOut)    ## './results'
+    os.makedirs(folderPathOut, exist_ok=True)   
 
     ## ------------ load data ------------
     import pandas as pd
@@ -538,15 +539,8 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
 
     ## ------------------- imputation -------------------
     dict_imput_param_all = {}
-    if do_imputation:
-        dataTable_desc_merged, dict_imput_param = descriptor_imputation(dataTable_desc_merged, cols_ignore=[colName_mid], descType=app)
-        dict_imput_param_all.update(dict_imput_param)
-
-
-    ## output folder
-    import os
-    folderPathOut = os.path.dirname(filePathOut)    ## './results'
-    os.makedirs(folderPathOut, exist_ok=True)   
+    dataTable_desc_merged, dict_imput_param = descriptor_imputation(dataTable_desc_merged, cols_ignore=[colName_mid], descType=app, do_imputation=do_imputation)
+    dict_imput_param_all.update(dict_imput_param)
 
     ## save merged desc
     print(f"\tAfter normalization & imputation, the merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors\n")
@@ -571,7 +565,7 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
         json.dump(dict_imput_param_all, ipdfh)
         print(f"\tThe imputation paramater data has been saved to <{json_file_imput_param}>\n")
 
-    return dataTable_desc_merged
+    return filePathOut, json_file_calc_param, json_file_norm_param, json_file_imput_param
 
 ####################################################################
 ######################### main function ############################
@@ -584,22 +578,24 @@ def main():
     # detect_encoding = True if args.detectEncoding else False
     colName_mid = args.colId    # 'Compound Name'
     colName_smi = args.colSmi    # 'Structure'
-    desc_fps = True if args.desc_fps=="True" else False
-    desc_rdkit = True if args.desc_rdkit=="True" else False
-    desc_cx = True if args.desc_cx=="True" else False
+    desc_fps = True if args.desc_fps  in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
+    desc_rdkit = True if args.desc_rdkit in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
+    desc_cx = True if args.desc_cx in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
     colName_custom_desc = args.colPreCalcDesc
-    do_norm = True if args.norm=='True' else False
-    do_imputation = True if args.imput=='True' else False
-    filePathOut = args.output        
+    do_norm = True if args.norm in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
+    do_imputation = True if args.imput in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
+    filePathOut = args.output
 
     ## descriptor calculation params
-    desc_calc_param = {'rd_physChem': True, 'rd_subStr': True, 'rd_clean': True, 
-                       'fp_radius': 3, 'fp_nBits': 2048, 
-                       'cx_version': 'V22', 'cx_desc': 'all'}
+    # if desc_calc_param is None or desc_calc_param == {}:
+    if True:
+        desc_calc_param = {'rd_physChem': True, 'rd_subStr': True, 'rd_clean': True, 
+                        'fp_radius': 3, 'fp_nBits': 2048, 
+                        'cx_version': 'V22', 'cx_desc': 'all'}
     ##
-    dataTable_desc_merged = run_script(fileNameIn, sep, colName_mid, colName_smi,
-                                       desc_rdkit, desc_fps, desc_cx, desc_calc_param, do_norm, do_imputation,
-                                       colName_custom_desc, filePathOut)
+    filePathOut_merged = run_script(fileNameIn, sep, colName_mid, colName_smi,
+                                    desc_rdkit, desc_fps, desc_cx, desc_calc_param, do_norm, do_imputation,
+                                    colName_custom_desc, filePathOut)
 
 if __name__ == '__main__':
     main()

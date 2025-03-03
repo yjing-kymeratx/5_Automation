@@ -22,7 +22,9 @@ JobDir='./'
 ########################################################
 # bash2py="/fsx/home/yjing/models/DIYML/bash2py_yjing.bash"
 # bash2py="/fsx/home/yjing/models/AutoML/bash2py_yjing.bash"
-bash2py="$JobDir/bash2py_yjing.bash"
+# bash2py="$JobDir/bash2py_yjing.bash"
+bash2py="/mnt/data0/Research/0_Test/cx_pKa/bash2py_yjing_local.bash"
+
 
 ## S1: input 
 # fileIn="$JobDir/Data/DataView_MDCK_MDR1__Permeability_1__export_top50.csv"

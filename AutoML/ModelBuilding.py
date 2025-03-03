@@ -31,6 +31,7 @@
 
 ## <===================== model initiate =====================>
 def step_1_model_init(ml_methed, n_jobs=-1, rng=666666):
+    import sklearn
     ml_methed = ml_methed.lower()
     ## -------------------- random forest --------------------
     if ml_methed in ['rf', 'random forest', 'randomforest']:
@@ -47,7 +48,7 @@ def step_1_model_init(ml_methed, n_jobs=-1, rng=666666):
     ## -------------------- MLP --------------------
     elif ml_methed in ['mlp', 'ann']:
         from sklearn.neural_network import MLPRegressor
-        sk_model = MLPRegressor(random_state=rng, max_iter=100, early_stopping=True)
+        sk_model = MLPRegressor(random_state=rng, max_iter=300, early_stopping=True)
         search_space = {'hidden_layer_sizes': [(128,), (128, 128), (128, 128, 128)], 'activation': ['logistic', 'tanh', 'relu'], 'solver': ['sgd', 'adam'], 'alpha': [0.1, 0.01, 0.001, 0.0001]}
 
     ## -------------------- KNN --------------------
@@ -385,12 +386,10 @@ def runScript(fileNameIn, sep=',', colName_mid='Compound Name', colName_split='S
     return None
 
 
-
 ####################################################################
 ######################### main function ############################
 ####################################################################
 def main():
-    
     ## ------------ load args ------------
     args = Args_Prepation(parser_desc='ML model building')
 
@@ -402,21 +401,21 @@ def main():
 
     modelType = args.modelType
     ml_method_list = []
-    if args.linear == 'True':
+    if args.linear in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
         ml_method_list.append('linear')
-    if args.rf == 'True':
+    if args.rf in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
         ml_method_list.append('rf')
-    if args.svm == 'True':
+    if args.svm in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
         ml_method_list.append('svm')
-    if args.mlp == 'True':
+    if args.mlp in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
         ml_method_list.append('mlp')
-    if args.knn == 'True':
+    if args.knn in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
         ml_method_list.append('knn')
 
     rng = int(args.rng)
     n_jobs = int(args.njobs)
-    logy = True if args.logy == 'True' else False
-    doHPT = True if args.doHPT == 'True' else False  
+    logy = True if args.logy in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
+    doHPT = True if args.doHPT in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False  
 
     ## ------------ load params for desc calc ------------
     import json

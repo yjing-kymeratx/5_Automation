@@ -161,8 +161,8 @@ def assign_value(idx, list_train, list_val, list_test):
 
 
 ## 
-def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='Structure', colName_date='Created On', 
-               split_method='random', CV=10, rng=666666, hasVal=True, filePathOut="./Results/data_split.csv"):
+def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='Structure',  split_method='random', 
+               colName_date='Created On',CV=10, rng=666666, hasVal=True, filePathOut="./Results/data_split.csv"):
     print(f">>>>Spliting dataset ...\n")
 
     ## ------------ load data ------------
@@ -198,7 +198,7 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
         
     dataTable_split.to_csv(filePathOut, index=False)
     print(f"\tThe cleaned data table has been saved to {filePathOut}\n")
-    return dataTable_split
+    return filePathOut
 
 
 def main():
@@ -213,13 +213,13 @@ def main():
     split_method = args.split
     CV = int(args.CV)
     rng = int(args.rng)
-    hasVal = True if args.hasVal == 'True' else False
+    hasVal = True if args.hasVal in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
 
     filePathOut = args.output
 
 
     ## run code
-    dataTable_split = run_script(fileNameIn, sep, colName_mid, colName_smi, colName_date, split_method, CV, rng, hasVal, filePathOut)
+    filePathOut_split = run_script(fileNameIn, sep, colName_mid, colName_smi, split_method, colName_date, CV, rng, hasVal, filePathOut)
 
 if __name__ == '__main__':
     main()
