@@ -140,20 +140,20 @@ def get_desc_descriptors(desc_list, desc_calc_param):
 
     ## rdkit prop
     if 'rd' in desc_type_list:
-        from DescGen import desc_calculator_rdkit
+        from AutoML.DescGen_backup import desc_calculator_rdkit
         physChem, subStr, clean = desc_calc_param['rd_physChem'], desc_calc_param['rd_subStr'], desc_calc_param['rd_clean']
         calculator_rd = desc_calculator_rdkit(physChem=physChem, subStr=subStr, clean=clean)
         desc_calculator_list.append(calculator_rd)
         
     ## mol fp
     if 'fp' in desc_type_list:
-        from DescGen import desc_calculator_morganFPs
+        from AutoML.DescGen_backup import desc_calculator_morganFPs
         calculator_fp = desc_calculator_morganFPs(radius=desc_calc_param['fp_radius'], nBits=desc_calc_param['fp_nBits'])
         desc_calculator_list.append(calculator_fp)
 
     ## chemxxon prop
     if 'cx' in desc_type_list:
-        from DescGen import desc_calculator_chemaxon
+        from AutoML.DescGen_backup import desc_calculator_chemaxon
         calculator_cx = desc_calculator_chemaxon(version=desc_calc_param['cx_version'], desc_list=desc_calc_param['cx_desc'])
         desc_calculator_list.append(calculator_cx)
 

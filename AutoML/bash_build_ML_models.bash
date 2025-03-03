@@ -60,12 +60,12 @@ ml_rf="True"
 ml_svm="True"
 ml_mlp="True"
 ml_knn="True"
-doHPT="True"
-# doHPT="False"
+# doHPT="True"
+doHPT="False"
 
 ## sys configs
-rng=666666
-njobs=-1
+rng="666666"
+njobs="-1"
 logy="True"
 
 ## output

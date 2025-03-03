@@ -158,36 +158,6 @@ def Args_Prepation(parser_desc):
     args = parser.parse_args()
     return args
 
-
-##
-def run_script(fileNameIn, sep=',', detect_encoding=True, colName_mid='Compound Name', colName_smi='Structure', colName_expt='IC50_uM', 
-               colName_expt_operator=None, filePathOut="./Results/data_input_clean.csv", ofileName_y="./Results/outcome_expt.csv"):
-    print(f">>>>Preparing dataset ...\n")
-    ## ---------- read data ----------
-    dataTable = load_csv(fileNameIn, sep=sep, detect_encoding=detect_encoding)
-
-    ## ---------- clean smiles ----------
-    dataTable = clean_smiles(dataTable, colName_smi=colName_smi, canonical=False, errmsg=False)
-    dataTable = clean_csv(dataTable, cols_basic=[colName_mid, colName_smi], col_y=col_y, col_ymod=colName_expt_operator)
-        
-    ## save output
-    import os
-    folderPathOut = os.path.dirname(filePathOut)
-    os.makedirs(folderPathOut, exist_ok=True)
-    dataTable.to_csv(filePathOut, index=False)
-    print(f"\tThe cleaned data table has been saved to {filePathOut}\n")
-
-    ## save the y output
-    if colName_expt is not None:
-        dataTable_y = dataTable[[colName_mid, colName_expt]]        
-        # ofileName_y = os.path.join(folderPathOut, f'outcome_expt.csv')
-
-        dataTable_y.to_csv(ofileName_y, index=False)
-        print(f"\tThe experiment outcome table has been saved to {ofileName_y}\n")
-    return dataTable, dataTable_y
-
-
-##
 def main():
     print(f">>>>Preparing dataset ...\n")
     args = Args_Prepation(parser_desc='Preparing the input files')
@@ -205,8 +175,27 @@ def main():
     filePathOut = args.output    ## 'Concat;Project' 
     ofileName_y = args.outputy
 
-    ## run the script
-    dataTable, dataTable_y = run_script(fileNameIn, sep, detect_encoding, colName_mid, colName_smi, colName_expt, colName_expt_operator, filePathOut, ofileName_y)
+    ## ---------- read data ----------
+    dataTable = load_csv(fileNameIn, sep=sep, detect_encoding=detect_encoding)
+
+    ## ---------- clean smiles ----------
+    dataTable = clean_smiles(dataTable, colName_smi=colName_smi, canonical=False, errmsg=False)
+    dataTable = clean_csv(dataTable, cols_basic=[colName_mid, colName_smi], col_y=colName_expt, col_ymod=colName_expt_operator)
+        
+    ## save output
+    import os
+    folderPathOut = os.path.dirname(filePathOut)
+    os.makedirs(folderPathOut, exist_ok=True)
+    dataTable.to_csv(filePathOut, index=False)
+    print(f"\tThe cleaned data table has been saved to {filePathOut}\n")
+
+    ## save the y output
+    if colName_expt is not None:
+        dataTable_y = dataTable[[colName_mid, colName_expt]]        
+        # ofileName_y = os.path.join(folderPathOut, f'outcome_expt.csv')
+
+        dataTable_y.to_csv(ofileName_y, index=False)
+        print(f"\tThe experiment outcome table has been saved to {ofileName_y}\n")
 
 if __name__ == '__main__':
     main()

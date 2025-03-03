@@ -1,6 +1,7 @@
 '''
 To be added
 '''
+
 ####################################################################
 ####################### descriptor filters #########################
 ####################################################################
@@ -35,7 +36,6 @@ def missingValueFilter(desc_all, json_file_imput_param, nan_cutoff=0.2):
 
     nan_ratio_table = pd.DataFrame.from_dict(nan_ratio_dict).T
     return nan_ratio_table, desc_sele
-
 
 ## ------------ Variance-based Filter ------------
 def VarianceFilter(X, threshold=0):
@@ -165,7 +165,7 @@ def Args_Prepation(parser_desc):
     parser.add_argument('-s', '--split', action="store", default="./Results/data_split.csv", help='The input file of the train/val/test split file')    
     parser.add_argument('-d', '--delimiter', action="store", default=',', help='The delimiter of input csv file for separate columns')
     parser.add_argument('--colId', action="store", default='Compound Name', help='The column name of the compound identifier')
-    parser.add_argument('--colAssay', action="store", default=None, help='The column name of the experiment outcome')
+    parser.add_argument('--coly', action="store", default=None, help='The column name of the experiment outcome')
     parser.add_argument('--cols', action="store", default='Split', help='The column name of the split')
 
     parser.add_argument('--modelType', action="store", default="regression", help='ML model type, either <regression> or <classification>')
@@ -181,15 +181,35 @@ def Args_Prepation(parser_desc):
     args = parser.parse_args()
     return args
 
-
-##
-
-def run_script(input_X, input_y, input_split, sep=',', colName_mid='Compound Name', colName_split='Split', colName_y=None, 
-               model_type="regression", doMissingValueFilter=True, doVarianceFilter=True, doL2Filter=True, doFeatureImportanceFilter=True, 
-               json_file_imput_param="./Results/feature_imputation_params.json", 
-               filePathOut="./Results/data_input_4_ModelBuilding.csv"):
-
+####################################################################
+######################### main function ############################
+####################################################################
+def main():
     print(f">>>>Selecting important Descriptors ...")
+    ## ------------ load args ------------
+    args = Args_Prepation(parser_desc='Feature selection')
+    if True:
+        input_X = args.desc
+        input_y = args.expt
+        input_split = args.split
+        sep = args.delimiter    # ',' 
+        colName_mid = args.colId    # 'Compound Name'
+        colName_split = args.cols
+        colName_y = args.coly
+
+        model_type = args.modelType    # 'regression', 'classification'
+        doMissingValueFilter = True if args.MissingValueFilter=="True" else False
+        json_file_imput_param = args.impuParamJson
+        doVarianceFilter = True if args.VarianceFilter=="True" else False
+        doL2Filter = True if args.L2Filter=="True" else False
+        doFeatureImportanceFilter = True if args.FIFilter=="True" else False   
+
+        ## output folder
+        import os
+        filePathOut = args.output 
+        folderPathOut = os.path.dirname(filePathOut)    ## './results'
+        os.makedirs(folderPathOut, exist_ok=True)   
+
     ## ------------ load data ------------
     ## load all descriptor tables and merge together
     import pandas as pd
@@ -254,43 +274,11 @@ def run_script(input_X, input_y, input_split, sep=',', colName_mid='Compound Nam
         
         this_Table = this_Table.rename(columns={'Select': f'select_{filterType}'})
         score_table_merged = score_table_merged.merge(right=this_Table, on='Descriptor', how='outer')
-    score_table_merged['Select_final'] = score_table_merged['Descriptor'].apply(lambda x: 'Yes' if x in desc_sele else 'No')
 
-    ## output folder
-    import os
-    folderPathOut = os.path.dirname(filePathOut)    ## './results'
-    os.makedirs(folderPathOut, exist_ok=True)       
+    score_table_merged['Select_final'] = score_table_merged['Descriptor'].apply(lambda x: 'Yes' if x in desc_sele else 'No')
     fileNameOut_FSscore = f"{folderPathOut}/feature_scoring.csv"
     score_table_merged.to_csv(fileNameOut_FSscore, index=False)
     print(f"\tThe merged table contains all feature selection scores is saved to <{fileNameOut_FSscore}>")
-
-####################################################################
-######################### main function ############################
-####################################################################
-def main():
-    ## ------------ load args ------------
-    args = Args_Prepation(parser_desc='Feature selection')
-    
-    input_X = args.desc
-    input_y = args.expt
-    input_split = args.split
-    sep = args.delimiter    # ',' 
-    colName_mid = args.colId    # 'Compound Name'
-    colName_split = args.cols
-    colName_y = args.colAssay
-
-    model_type = args.modelType    # 'regression', 'classification'
-    doMissingValueFilter = True if args.MissingValueFilter=="True" else False
-    json_file_imput_param = args.impuParamJson
-    doVarianceFilter = True if args.VarianceFilter=="True" else False
-    doL2Filter = True if args.L2Filter=="True" else False
-    doFeatureImportanceFilter = True if args.FIFilter=="True" else False
-    filePathOut = args.output
-
-    ## 
-    run_script(input_X, input_y, input_split, sep, colName_mid, colName_split, colName_y, model_type,
-               doMissingValueFilter, doVarianceFilter, doL2Filter, doFeatureImportanceFilter,
-               json_file_imput_param, filePathOut)
 
 if __name__ == '__main__':
     main()

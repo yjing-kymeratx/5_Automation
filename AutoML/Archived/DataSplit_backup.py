@@ -160,16 +160,31 @@ def assign_value(idx, list_train, list_val, list_test):
         return 'Training'
 
 
-## 
-def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='Structure', colName_date='Created On', 
-               split_method='random', CV=10, rng=666666, hasVal=True, filePathOut="./Results/data_split.csv"):
+def main():
     print(f">>>>Spliting dataset ...\n")
+    args = Args_Prepation(parser_desc='Preparing the input files and the descriptors')
+    fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
+    sep = args.delimiter 
+    colName_mid = args.colId    # 'Compound Name'
+    colName_smi = args.colSmi    # 'Structure'
+    colName_date = args.colDate    # 'Created On'
+
+    split_method = args.split
+    CV = int(args.CV)
+    rng = int(args.rng)
+    hasVal = True if args.hasVal == 'True' else False
+
+    filePathOut = args.output
+    import os
+    folderPathOut = os.path.dirname(filePathOut)    ## './results'
+    os.makedirs(folderPathOut, exist_ok=True)
 
     ## ------------ load data ------------
     import pandas as pd
     dataTable_raw = pd.read_csv(fileNameIn, sep=sep)
     print(f"\t{dataTable_raw.shape}")
     assert colName_mid in dataTable_raw.columns, f"\tColumn name for mol ID <{colName_mid}> is not in the table.\n"
+        
 
     print(f"\tData split method: {split_method}")
     if split_method not in ['random', 'temporal', 'diverse']:
@@ -192,34 +207,8 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
         dataTable_split = nFoldSplit_diverse(dataTable_raw, colName_mid, colName_smi, CV=CV, rng=rng, hasVal=hasVal)
 
     ## ------------ save the split ------------
-    import os
-    folderPathOut = os.path.dirname(filePathOut)    ## './results'
-    os.makedirs(folderPathOut, exist_ok=True)
-        
     dataTable_split.to_csv(filePathOut, index=False)
     print(f"\tThe cleaned data table has been saved to {filePathOut}\n")
-    return dataTable_split
-
-
-def main():
-    print(f">>>>Spliting dataset ...\n")
-    args = Args_Prepation(parser_desc='Preparing the input files and the descriptors')
-    fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
-    sep = args.delimiter 
-    colName_mid = args.colId    # 'Compound Name'
-    colName_smi = args.colSmi    # 'Structure'
-    colName_date = args.colDate    # 'Created On'
-
-    split_method = args.split
-    CV = int(args.CV)
-    rng = int(args.rng)
-    hasVal = True if args.hasVal == 'True' else False
-
-    filePathOut = args.output
-
-
-    ## run code
-    dataTable_split = run_script(fileNameIn, sep, colName_mid, colName_smi, colName_date, split_method, CV, rng, hasVal, filePathOut)
 
 if __name__ == '__main__':
     main()

@@ -252,54 +252,90 @@ def Args_Prepation(parser_desc):
     args = parser.parse_args()
     return args
 
-##
-def runScript(fileNameIn, sep=',', colName_mid='Compound Name', colName_split='Split', colName_y='IC50_uM',
-              modelType="regression", ml_method_list=['linear'], rng=666666, n_jobs=-1, logy=False, doHPT=False, 
-              desc_calc_param={}, desc_norm_param={}, desc_impu_param={}, 
-              filePathOut="./Results/performance_results.csv"):
-
+####################################################################
+######################### main function ############################
+####################################################################
+def main():
     print(f">>>>Building ML models ...")
     # Mute warining
     import warnings
     warnings.filterwarnings("ignore")
+    
+    ## ------------ load args ------------
+    args = Args_Prepation(parser_desc='ML model building')
 
-    ## ------------- output folder -------------
-    import os
-    folderPathOut = os.path.dirname(filePathOut)    ## './results'
-    os.makedirs(folderPathOut, exist_ok=True)   
+    if True:
+        fileNameIn = args.input
+        sep = args.delimiter
+        colName_mid = args.colId
+        colName_split = args.cols
+        colName_y = args.coly
 
-    ## model folder
-    folderPathOut_model = f"{folderPathOut}/Models"
-    os.makedirs(folderPathOut_model, exist_ok=True)
+        modelType = args.modelType
+        ml_method_list = []
+        if args.linear == 'True':
+            ml_method_list.append('linear')
+        if args.rf == 'True':
+            ml_method_list.append('rf')
+        if args.svm == 'True':
+            ml_method_list.append('svm')
+        if args.mlp == 'True':
+            ml_method_list.append('mlp')
+        if args.knn == 'True':
+            ml_method_list.append('knn')
 
-    ## plot folder
-    folderPathOut_plot = f"{folderPathOut}/Plots"
-    os.makedirs(folderPathOut_plot, exist_ok=True)
+        rng = int(args.rng)
+        n_jobs = int(args.njobs)
+        logy = True if args.logy == 'True' else False
+        doHPT = True if args.doHPT == 'True' else False
 
+        ## output folder
+        import os
+        filePathOut = args.output 
+        folderPathOut = os.path.dirname(filePathOut)    ## './results'
+        os.makedirs(folderPathOut, exist_ok=True)   
+
+        ## model folder
+        folderPathOut_model = f"{folderPathOut}/Models"
+        os.makedirs(folderPathOut_model, exist_ok=True)
+
+        ## plot folder
+        folderPathOut_plot = f"{folderPathOut}/Plots"
+        os.makedirs(folderPathOut_plot, exist_ok=True)
+
+        ## ------------ load params for desc calc ------------
+        import json
+        with open(args.calcParamJson, 'r') as ifh_dc:
+            desc_calc_param = json.load(ifh_dc)
+        with open(args.normParamJson, 'r') as ifh_dn:
+            desc_norm_param = json.load(ifh_dn)
+        with open(args.impuParamJson, 'r') as ifh_di:
+            desc_impu_param = json.load(ifh_di)
 
     ## ------------------------ load data ------------------------
     import pandas as pd
     dataTable_raw = pd.read_csv(fileNameIn, sep=sep)
     colName_X = [col for col in dataTable_raw.columns if col not in [colName_mid, colName_split, colName_y]]
 
-    ## training
-    dataTable_train = dataTable_raw[dataTable_raw[colName_split]=='Training']
-    X_train, y_train = dataTable_train[colName_X], dataTable_train[colName_y]
-    print(f"\tTraining_X: {X_train.shape}; Training_y: {y_train.shape}")
+    if True:
+        ## training
+        dataTable_train = dataTable_raw[dataTable_raw[colName_split]=='Training']
+        X_train, y_train = dataTable_train[colName_X], dataTable_train[colName_y]
+        print(f"\tTraining_X: {X_train.shape}; Training_y: {y_train.shape}")
 
-    ## validation
-    dataTable_val = dataTable_raw[dataTable_raw[colName_split]=='Validation']
-    X_val, y_val = dataTable_val[colName_X], dataTable_val[colName_y]
-    print(f"\tValidation_X: {X_val.shape}; Validation_y: {y_val.shape}")
+        ## validation
+        dataTable_val = dataTable_raw[dataTable_raw[colName_split]=='Validation']
+        X_val, y_val = dataTable_val[colName_X], dataTable_val[colName_y]
+        print(f"\tValidation_X: {X_val.shape}; Validation_y: {y_val.shape}")
 
-    ## test
-    dataTable_test = dataTable_raw[dataTable_raw[colName_split]=='Test']
-    X_test, y_test = dataTable_test[colName_X], dataTable_test[colName_y]
-    print(f"\tTest_X: {X_test.shape}; Test_y: {y_test.shape}")
+        ## test
+        dataTable_test = dataTable_raw[dataTable_raw[colName_split]=='Test']
+        X_test, y_test = dataTable_test[colName_X], dataTable_test[colName_y]
+        print(f"\tTest_X: {X_test.shape}; Test_y: {y_test.shape}")
 
     ## ------------------------ models ------------------------ 
     model_dict_all = {}
-    # model_dict_performance = {}
+    model_dict_performance = {}
     scoring = 'neg_mean_absolute_error'
     ##
     for ml_methed in ml_method_list:
@@ -382,58 +418,6 @@ def runScript(fileNameIn, sep=',', colName_mid='Compound Name', colName_split='S
             with open(fileNameOut_model, 'wb') as ofh_models:
                 pickle.dump(model_dict, ofh_models)
                 print(f"\tThe {ml_methed} model is saved to <{fileNameOut_model}>\n")
-    return None
-
-
-
-####################################################################
-######################### main function ############################
-####################################################################
-def main():
-    
-    ## ------------ load args ------------
-    args = Args_Prepation(parser_desc='ML model building')
-
-    fileNameIn = args.input
-    sep = args.delimiter
-    colName_mid = args.colId
-    colName_split = args.cols
-    colName_y = args.coly
-
-    modelType = args.modelType
-    ml_method_list = []
-    if args.linear == 'True':
-        ml_method_list.append('linear')
-    if args.rf == 'True':
-        ml_method_list.append('rf')
-    if args.svm == 'True':
-        ml_method_list.append('svm')
-    if args.mlp == 'True':
-        ml_method_list.append('mlp')
-    if args.knn == 'True':
-        ml_method_list.append('knn')
-
-    rng = int(args.rng)
-    n_jobs = int(args.njobs)
-    logy = True if args.logy == 'True' else False
-    doHPT = True if args.doHPT == 'True' else False  
-
-    ## ------------ load params for desc calc ------------
-    import json
-    with open(args.calcParamJson, 'r') as ifh_dc:
-        desc_calc_param = json.load(ifh_dc)
-    with open(args.normParamJson, 'r') as ifh_dn:
-        desc_norm_param = json.load(ifh_dn)
-    with open(args.impuParamJson, 'r') as ifh_di:
-        desc_impu_param = json.load(ifh_di)
-
-    filePathOut = args.output
-
-    ##
-    runScript(fileNameIn, sep, colName_mid, colName_split, colName_y,
-              modelType, ml_method_list, rng, n_jobs, logy, doHPT, 
-              desc_calc_param, desc_norm_param, desc_impu_param, 
-              filePathOut)      
 
 if __name__ == '__main__':
     main()
