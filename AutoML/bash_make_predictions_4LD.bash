@@ -23,16 +23,11 @@ modelDir="/mnt/data0/Research/5_Automation/AutoML"
 resultDir="$JobDir"
 
 # fileIn="$JobDir/Data/DataView_MDCK_MDR1__Permeability_1__export.csv"
-fileIn="$JobDir/Data/DataView_MDCK_MDR1__Permeability_1__export_top300.csv"
-iType="csv"
-sep=','
-colId='Compound Name'
-colSmi='Structure'
-colAssay='ADME MDCK(WT) Permeability;Mean;A to B Papp (10^-6 cm/s);(Num)'
+fileIn="$JobDir/Data/input2.sdf"
+iType="sdf"
+colId='Corporate ID'
 
 modelFile="$modelDir/Results/Models/Best_AutoML_models.pickle"
 fileOut="$resultDir/results.csv"
 
-$bash2py python "$JobDir"/ModelPrediction.py -i "$fileIn" --inputType "$iType" -d "$sep" --colId "$colId" --colSmi "$colSmi" --colAssay "$colAssay" --modelFile "$modelFile" -o "$fileOut"
-
-
+$bash2py python "$JobDir"/ModelPrediction.py -i "$fileIn" --inputType "$iType" --colId "$colId" --modelFile "$modelFile" -o "$fileOut"

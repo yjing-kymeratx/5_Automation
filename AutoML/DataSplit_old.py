@@ -24,7 +24,7 @@ def mute_rdkit():
 ## ================================================================================================
 def nFoldSplit_random(dataTable, colName_mid='Compound Name', CV=10, rng=666666, hasVal=True):
     ds_size = dataTable.shape[0]
-    assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})\n"
+    assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})"
 
     dataTable_split = dataTable[[colName_mid]].reset_index(drop=True)
     list_mol_idx = dataTable_split.index.to_numpy()
@@ -39,7 +39,7 @@ def nFoldSplit_random(dataTable, colName_mid='Compound Name', CV=10, rng=666666,
     idx_test = sublists[CV-1]
     idx_val = sublists[CV-2] if hasVal else []
     idx_train = [i for i in list_mol_idx if i not in idx_test and i not in idx_val]
-    print(f"\tSplit the data (n={len(list_mol_idx)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})\n")
+    print(f"\tSplit the data (n={len(list_mol_idx)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})")
 
     # Apply the function to assign values to the new column 'A'
     dataTable_split[f'Split'] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
@@ -51,7 +51,7 @@ def nFoldSplit_random(dataTable, colName_mid='Compound Name', CV=10, rng=666666,
 ## ================================================================================================
 def nFoldSplit_temporal(dataTable, colName_mid='Compound Name', colName_date="Created On", CV=10, hasVal=True):
     ds_size = dataTable.shape[0]
-    assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})\n"
+    assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})"
 
     dataTable_split = dataTable[[colName_mid, colName_date]].reset_index(drop=True)
     try:
@@ -60,7 +60,7 @@ def nFoldSplit_temporal(dataTable, colName_mid='Compound Name', colName_date="Cr
         dataTable_split["date_formatted"] = pd.to_datetime(dataTable_split[colName_date])
         dataTable_split = dataTable_split.sort_values(by=["date_formatted"], ascending=[True])
     except Exception as e:
-        print(f"\tWarning! The mol date column <{colName_date}> cannot be formatted. Error mgs: {e}\n")
+        print(f"\tWarning! The mol date column <{colName_date}> cannot be formatted. Error mgs: {e}")
     else:
         # Split the list into N sublists
         import numpy as np
@@ -68,12 +68,12 @@ def nFoldSplit_temporal(dataTable, colName_mid='Compound Name', colName_date="Cr
         try:
             sublists = np.array_split(list_mol_idx, CV)
         except Exception as e:
-            print(f"\tWarning! Cannot split data based on date. Error mgs: {e}\n")
+            print(f"\tWarning! Cannot split data based on date. Error mgs: {e}")
         else:
             idx_test = sublists[CV-1]
             idx_val = sublists[CV-2] if hasVal else []
             idx_train = [i for i in list_mol_idx if i not in idx_test and i not in idx_val]
-            print(f"\tSplit the data (n={len(list_mol_idx)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})\n")
+            print(f"\tSplit the data (n={len(list_mol_idx)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})")
             
             # Apply the function to assign values to the new column 'A'
             dataTable_split[f'Split'] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
@@ -85,7 +85,7 @@ def nFoldSplit_temporal(dataTable, colName_mid='Compound Name', colName_date="Cr
 ## ================================================================================================
 def nFoldSplit_diverse(dataTable, colName_mid='Compound Name', colName_smi="Structure", CV=10, rng=666666, hasVal=True):
     ds_size = dataTable.shape[0]
-    assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})\n"
+    assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})"
 
     dataTable_split = dataTable[[colName_mid, colName_smi]].sample(frac=1).reset_index(drop=True)
     smiles_list = dataTable_split[colName_smi].to_list()
@@ -114,7 +114,7 @@ def nFoldSplit_diverse(dataTable, colName_mid='Compound Name', colName_smi="Stru
     idx_test = pick_idx[:num_picks] if hasVal else pick_idx
     idx_val = pick_idx[num_picks:] if hasVal else []
     idx_train = [i for i in dataTable_split.index if i not in pick_idx]
-    print(f"\tSplit the data (n={len(fps)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})\n")
+    print(f"\tSplit the data (n={len(fps)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})")
 
     # Apply the function to assign values to the new column 'A'
     dataTable_split[f'Split'] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
@@ -161,7 +161,7 @@ def assign_value(idx, list_train, list_val, list_test):
 
 
 def main():
-    print(f">>>>Spliting dataset ...\n")
+    print(f">>>>Spliting dataset ...")
     args = Args_Prepation(parser_desc='Preparing the input files and the descriptors')
     fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
     sep = args.delimiter 
@@ -183,32 +183,32 @@ def main():
     import pandas as pd
     dataTable_raw = pd.read_csv(fileNameIn, sep=sep)
     print(f"\t{dataTable_raw.shape}")
-    assert colName_mid in dataTable_raw.columns, f"\tColumn name for mol ID <{colName_mid}> is not in the table.\n"
+    assert colName_mid in dataTable_raw.columns, f"\tColumn name for mol ID <{colName_mid}> is not in the table."
         
 
     print(f"\tData split method: {split_method}")
     if split_method not in ['random', 'temporal', 'diverse']:
-        print(f"\tWarning, the split method should be selected from [random, temporal, diverse]\n")
+        print(f"\tWarning, the split method should be selected from [random, temporal, diverse]")
         split_method = 'random'
-        print(f"\tUse <random> instead\n")
+        print(f"\tUse <random> instead")
     ## ------------ calculate rdkit properties ------------
     if split_method == 'random':
         dataTable_split = nFoldSplit_random(dataTable_raw, colName_mid, CV=CV, rng=rng, hasVal=hasVal)
 
     ## ------------ calculate mol fingerprints ------------
     elif split_method == 'temporal':
-        assert colName_date is not None, f"\tColumn name for date <{colName_date}> should not be None when using {split_method} split\n"
-        assert colName_date in dataTable_raw.columns, f"\tColumn name for date <{colName_date}> should be in the table column when using {split_method} split\n"
+        assert colName_date is not None, f"\tColumn name for date <{colName_date}> should not be None when using {split_method} split"
+        assert colName_date in dataTable_raw.columns, f"\tColumn name for date <{colName_date}> should be in the table column when using {split_method} split"
         dataTable_split = nFoldSplit_temporal(dataTable_raw, colName_mid, colName_date, CV=CV, hasVal=hasVal)
 
     ## ------------ calculate chemAxon properties ------------
     elif split_method == 'diverse':
-        assert colName_smi in dataTable_raw.columns, f"\tColumn name for mol smiles <{colName_smi}> is not in the table.\n"
+        assert colName_smi in dataTable_raw.columns, f"\tColumn name for mol smiles <{colName_smi}> is not in the table."
         dataTable_split = nFoldSplit_diverse(dataTable_raw, colName_mid, colName_smi, CV=CV, rng=rng, hasVal=hasVal)
 
     ## ------------ save the split ------------
     dataTable_split.to_csv(filePathOut, index=False)
-    print(f"\tThe cleaned data table has been saved to {filePathOut}\n")
+    print(f"\tThe cleaned data table has been saved to {filePathOut}")
 
 if __name__ == '__main__':
     main()

@@ -36,18 +36,18 @@ def _determine_encoding(fileNameIn, default='utf-8'):
         # Step 3: Retrieve the encoding information
         encoding = encoding_result['encoding']
     except Exception as e:
-        print(f"\tError! Can not detect encoding, error {e}\n")
+        print(f"\tError! Can not detect encoding, error {e}")
         encoding = default
     else:
         if encoding != default:
-            print(f"\tUsing Encoding <{encoding}>.\n")
+            print(f"\tUsing Encoding <{encoding}>")
     return encoding
 
 ## ---------------- load csv using pandas ----------------
 def load_csv(fileNameIn, sep, detect_encoding=False):
     import pandas as pd
 
-    print(f"\t==>Now reading the csv...\n")
+    print(f"\t==>Now reading the csv...")
     try:
         ## define encoding
         if detect_encoding:
@@ -56,9 +56,9 @@ def load_csv(fileNameIn, sep, detect_encoding=False):
             encoding = 'utf-8'
         ## load csv 
         dataTable = pd.read_csv(fileNameIn, sep=sep, encoding=encoding)
-        print(f"\tThe original csv file has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns\n") 
+        print(f"\tThe original csv file has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns") 
     except Exception as e:
-        print(f"\tError! Cannot load csv. errmsg: {e}\n")
+        print(f"\tError! Cannot load csv. errmsg: {e}")
         dataTable = None
     return dataTable
 
@@ -67,25 +67,25 @@ def clean_csv(dataTable, cols_basic, col_y=None, col_ymod=None):
     print(f"\t==>Now cleanning the csv...")
     ## remove NaN on essential cols
     for col in cols_basic:
-        assert col in dataTable.columns, f"\tError! Column <{col}> is not in the table!\n"
+        assert col in dataTable.columns, f"\tError! Column <{col}> is not in the table!"
     dataTable = dataTable.dropna(subset=cols_basic)
-    print(f"\tAfter removing NaNs in {cols_basic}, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns\n")
+    print(f"\tAfter removing NaNs in {cols_basic}, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
     
     ## remove Duplicates on essential
     dataTable = dataTable.drop_duplicates(subset=cols_basic)
-    print(f"\tAfter removing duplicates, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns\n")
+    print(f"\tAfter removing duplicates, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
 
     ##
     if col_y is not None:
-        assert col_y in dataTable.columns, f"\tError! expterimental(y) column <{col_y}> is not in the table!\n"
+        assert col_y in dataTable.columns, f"\tError! expterimental(y) column <{col_y}> is not in the table!"
         dataTable = dataTable.dropna(subset=col_y)
-        print(f"\tAfter removing NaNs in {col_y}, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns\n")
+        print(f"\tAfter removing NaNs in {col_y}, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
 
         if col_ymod is not None:
-            assert col_ymod in dataTable.columns, f"\tError! Operator column <{col_ymod}> is not in the table!\n"
+            assert col_ymod in dataTable.columns, f"\tError! Operator column <{col_ymod}> is not in the table!"
             dataTable = dataTable[dataTable[col_ymod].isin(['='])]
     
-    print(f"\tAfter filterring operators, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns\n")
+    print(f"\tAfter filterring operators, the table has <{dataTable.shape[0]}> rows and <{dataTable.shape[1]}> columns")
     dataTable = dataTable.reset_index(drop=True)
     return dataTable
 
@@ -121,16 +121,16 @@ def cleanUpSmiles(smi, canonical=True, errmsg=False):
         mol = Chem.MolFromSmiles(smi)
         smi_rdkit = Chem.MolToSmiles(mol, canonical=canonical)
     except Exception as e:
-        print(f"\t\tWarning! Cannot prase this Smiles: <{smi}>\n")
+        print(f"\t\tWarning! Cannot prase this Smiles: <{smi}>")
         if errmsg:
-            print(f"\t\tErrMsg: {e}\n")
+            print(f"\t\tErrMsg: {e}")
         import numpy as np
         smi_rdkit = np.nan
     return smi_rdkit
 
 def clean_smiles(dataTable, colName_smi, canonical=True, errmsg=False):
-    print(f"\t==>Now cleanning the Smiles...\n")
-    assert colName_smi in dataTable.columns, f"\tError! Column <{colName_smi}> is not in the table!\n"
+    print(f"\t==>Now cleanning the Smiles...")
+    assert colName_smi in dataTable.columns, f"\tError! Column <{colName_smi}> is not in the table!"
     dataTable[f"{colName_smi}_original"] = dataTable[colName_smi]
     dataTable[colName_smi] = dataTable[colName_smi].apply(lambda x: cleanUpSmiles(x, canonical=canonical, errmsg=errmsg))
     return dataTable
@@ -159,7 +159,7 @@ def Args_Prepation(parser_desc):
     return args
 
 def main():
-    print(f">>>>Preparing dataset ...\n")
+    print(f">>>>Preparing dataset ...")
     args = Args_Prepation(parser_desc='Preparing the input files')
 
     fileNameIn = args.input    # f"./0_Data/DataView_MDCK_MDR1__Permeability_1__export.csv"
@@ -187,7 +187,7 @@ def main():
     folderPathOut = os.path.dirname(filePathOut)
     os.makedirs(folderPathOut, exist_ok=True)
     dataTable.to_csv(filePathOut, index=False)
-    print(f"\tThe cleaned data table has been saved to {filePathOut}\n")
+    print(f"\tThe cleaned data table has been saved to {filePathOut}")
 
     ## save the y output
     if colName_expt is not None:
@@ -195,7 +195,7 @@ def main():
         # ofileName_y = os.path.join(folderPathOut, f'outcome_expt.csv')
 
         dataTable_y.to_csv(ofileName_y, index=False)
-        print(f"\tThe experiment outcome table has been saved to {ofileName_y}\n")
+        print(f"\tThe experiment outcome table has been saved to {ofileName_y}")
 
 if __name__ == '__main__':
     main()

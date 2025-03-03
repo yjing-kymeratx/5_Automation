@@ -30,9 +30,9 @@ def missingValueFilter(desc_all, json_file_imput_param, nan_cutoff=0.2):
                 else:
                     nan_ratio_dict[desc]['Select'] = 'No'
         ## print results
-        print(f"\t\tIn total <{len(desc_all)}> desc, there are <{len(desc_sele)}> selected, cutoff is {nan_cutoff}.\n")
+        print(f"\t\tIn total <{len(desc_all)}> desc, there are <{len(desc_sele)}> selected, cutoff is {nan_cutoff}.")
     else:
-        print(f"Error! The imputation param file {json_file_imput_param} does not exist\n")
+        print(f"Error! The imputation param file {json_file_imput_param} does not exist")
 
     nan_ratio_table = pd.DataFrame.from_dict(nan_ratio_dict).T
     return nan_ratio_table, desc_sele
@@ -60,7 +60,7 @@ def VarianceFilter(X, threshold=0):
             variance_dict[i]['Select'] = 'No'
     variance_table = pd.DataFrame.from_dict(variance_dict).T
     ## print results
-    print(f"\t\tVarianceFilter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected, cutoff is {threshold}.\n")
+    print(f"\t\tVarianceFilter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected, cutoff is {threshold}.")
     return variance_table, desc_sele
 
 ## ------------ L2-based Filter ------------
@@ -69,14 +69,10 @@ def L2_based_selection(X, y, model_type='regression', penalty_param=0.01):
     ## define estimator model
     if model_type == 'regression':
         from sklearn import linear_model
-        print(f"\t\tThe model type is {model_type} so select Lasso model.\n")
         estimator = linear_model.Lasso(alpha=penalty_param, max_iter=5000, random_state=666666)
     elif model_type == 'classification':
         from sklearn.svm import LinearSVC
-        print(f"\t\tThe model type is {model_type} so select LinearSVC model.\n")
         estimator = LinearSVC(penalty="l2", loss="squared_hinge", dual=True)
-    else:
-        print(f"\tError! Your model type <{model_type}> is not in [regression, classification]\n")
     
     ## fit estimator model
     y_np = y.to_numpy().reshape((len(y),))
@@ -102,10 +98,10 @@ def L2_based_selection(X, y, model_type='regression', penalty_param=0.01):
             else:
                 coef_dict[i]['Select'] = 'No'
     else:
-        print(f"Error! The desc (N={len(desc_list)}) does not match the coef scores (N={len(scores)})\n")
+        print(f"Error! The desc (N={len(desc_list)}) does not match the coef scores (N={len(scores)})")
 
     ## print results
-    print(f"\t\tL2 filter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected.\n")
+    print(f"\t\tL2 filter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected.")
     coef_table = pd.DataFrame.from_dict(coef_dict).T
     return coef_table, desc_sele
 
@@ -144,10 +140,10 @@ def RF_based_selection(X, y, model_type='regression', penalty_param=0.01):
             else:
                 FI_dict[i]['Select'] = 'No'
     else:
-        print(f"Error! The desc (N={len(desc_list)}) does not match the feature importance (N={len(scores)})\n")
+        print(f"Error! The desc (N={len(desc_list)}) does not match the feature importance (N={len(scores)})")
 
     ## print results
-    print(f"\t\tRF filter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected.\n")
+    print(f"\t\tRF filter: In total <{len(desc_list)}> desc, there are <{len(desc_sele)}> selected.")
     FI_table = pd.DataFrame.from_dict(FI_dict).T
     return FI_table, desc_sele
 
@@ -168,7 +164,7 @@ def Args_Prepation(parser_desc):
     parser.add_argument('--coly', action="store", default=None, help='The column name of the experiment outcome')
     parser.add_argument('--cols', action="store", default='Split', help='The column name of the split')
 
-    parser.add_argument('--modelType', action="store", default="regression", help='ML model type, either <regression> or <classification>')
+    parser.add_argument('--modelType', action="store", default="Regression", help='ML model type, either <regression> or <classification>')
     parser.add_argument('--MissingValueFilter', action="store", default="True", help='remove the descriptor with a lot of missing values')
     parser.add_argument('--impuParamJson', action="store", default="./Results/feature_imputation_params.json", help='The json file of descriptor imputation parameters')
 
@@ -216,48 +212,45 @@ def main():
     dataTable_s = pd.read_csv(input_split, sep=sep, usecols=[colName_mid, colName_split])
     dataTable_y = pd.read_csv(input_y, sep=sep, usecols=[colName_mid, colName_y])
     dataTable_X = pd.read_csv(input_X, sep=sep)
-    print(f"\tLoading split DataFrame: <{dataTable_s.shape}>, y DataFrame: <{dataTable_y.shape}>, X DataFrame: <{dataTable_X.shape}>\n")
+    print(f"\tLoading split DataFrame: <{dataTable_s.shape}>, y DataFrame: <{dataTable_y.shape}>, X DataFrame: <{dataTable_X.shape}>")
 
     dataTable_merged_all = pd.merge(left=dataTable_s, right=dataTable_y, on=colName_mid, how='inner')
     dataTable_merged_all = dataTable_merged_all.merge(right=dataTable_X, on=colName_mid, how='inner')
-    print(f"\tThe merged table has shape {dataTable_merged_all.shape}\n")
+    print(f"\tThe merged table has shape {dataTable_merged_all.shape}")
 
     ## select the training&validation data
     dataTable_merged = dataTable_merged_all[~(dataTable_merged_all[colName_split].isin(['Test']))]
     # dataTable_merged = dataTable_merged.drop(columns=[colName_split])
-    print(f"\tThe training/validation table has shape {dataTable_merged.shape}\n")
+    print(f"\tThe training/validation table has shape {dataTable_merged.shape}")
 
     ## get descriptors (X) and outcome (y)
     colNames_X = [desc for desc in dataTable_X.columns if desc != colName_mid]
     X, y = dataTable_merged[colNames_X], dataTable_merged[colName_y]
-    print(f"\tX has shape {X.shape}, y has shape {y.shape}\n")
+    print(f"\tX has shape {X.shape}, y has shape {y.shape}")
 
     ## ------------ filters ------------
     score_table_dict = {}
     ## remove descriptors with too many missing data
     if doMissingValueFilter:
-        print(f"\tremove descriptors with too many missing data\n")
+        print(f"\tremove descriptors with too many missing data")
         score_table_dict['MissingValueFilter'], desc_sele = missingValueFilter(list(X.columns), json_file_imput_param, nan_cutoff=0.2)
         X = X[desc_sele]
-    else:
-        score_table_dict['MissingValueFilter'], desc_sele = missingValueFilter(list(X.columns), json_file_imput_param, nan_cutoff=0.2)
-        X = X[desc_sele]
-        
+
     ## Variance-based Filter
     if doVarianceFilter:
-        print(f"\tremove descriptors with too low variance\n")
+        print(f"\tremove descriptors with too low variance")
         score_table_dict['VarianceFilter'], desc_sele = VarianceFilter(X=X, threshold=0.001)
         X = X[desc_sele]
 
     ## L2-based Filter
     if doL2Filter:
-        print(f"\tremove descriptors with L2 regulization\n")
+        print(f"\tremove descriptors with L2 regulization")
         score_table_dict['L2Filter'], desc_sele = L2_based_selection(X=X, y=y, model_type=model_type)
         X = X[desc_sele]
 
     ## RF-based Filter
     if doFeatureImportanceFilter:
-        print(f"\tremove descriptors with RF feature importance\n")
+        print(f"\tremove descriptors with RF feature importance")
         score_table_dict['FIFilter'], desc_sele = RF_based_selection(X=X, y=y, model_type=model_type)
         X = X[desc_sele]
 

@@ -30,7 +30,7 @@ class desc_calculator_rdkit(object):
         from rdkit.Chem import Descriptors
 
         ## error checking
-        assert self._desc_physChem or self._desc_subStr, f"\Error! One of <physChem> or <subStr> should be True.\n"
+        assert self._desc_physChem or self._desc_subStr, f"\Error! One of <physChem> or <subStr> should be True."
 
         # all descriptors (210)
         all_list = [n[0] for n in Descriptors._descList]
@@ -59,14 +59,14 @@ class desc_calculator_rdkit(object):
             from rdkit import Chem
             mol = Chem.MolFromSmiles(smi)
         except Exception as e:
-            print(f'\tThis SMILES cannot be transfer into mol using RDKit: {smi}; Error msg: {e}\n')
+            print(f'\tThis SMILES cannot be transfer into mol using RDKit: {smi}; Error msg: {e}')
         else:
             try:
                 result = self._calculator.CalcDescriptors(mol)
             except Exception as e:
-                print(f'\tThis mol cannot be calculated property using RDKit; Error msg: {e}\n')
+                print(f'\tThis mol cannot be calculated property using RDKit; Error msg: {e}')
             else:
-                assert len(self._desc_list) == len(result), f"\tError! Num_calc_desc does not match desc_list\n"
+                assert len(self._desc_list) == len(result), f"\tError! Num_calc_desc does not match desc_list"
                 
                 for i in range(len(self._desc_list)):
                     desc_name = f"rd_{self._desc_list[i]}"
@@ -85,14 +85,14 @@ class desc_calculator_morganFPs(object):
             from rdkit import Chem
             mol = Chem.MolFromSmiles(smi)
         except Exception as e:
-            print(f'\tThis SMILES cannot be transfer into mol using RDKit: {smi}; Error msg: {e}\n')
+            print(f'\tThis SMILES cannot be transfer into mol using RDKit: {smi}; Error msg: {e}')
         else:
             try:
                 from rdkit.Chem import AllChem, rdMolDescriptors
                 # result = AllChem.GetMorganFingerprintAsBitVect(mol, radius=self._radius, nBits=self._nBits)
                 result = rdMolDescriptors.GetMorganFingerprintAsBitVect(mol, radius=self._radius, nBits=self._nBits)
             except Exception as e:
-                print(f'\tThis mol cannot be calculated into FPs using RDKit; Error msg: {e}\n')
+                print(f'\tThis mol cannot be calculated into FPs using RDKit; Error msg: {e}')
             else:
                 # dataDict_results['Fps'] = Fps
                 for i in range(len(result)):
@@ -139,7 +139,7 @@ class desc_calculator_chemaxon(object):
                 if desc in api_param_dict:
                     self._desc_list.append(desc)
                 else:
-                    print(f"\t\tWarning, this prop <{desc}> is not in the <calculations dict>\n")
+                    print(f"\t\tWarning, this prop <{desc}> is not in the <calculations dict>")
 
         ## define api_param
         self._api_param = []
@@ -174,7 +174,7 @@ class desc_calculator_chemaxon(object):
             import ast
             output_decoded = ast.literal_eval(output.decode())
         except Exception as e:
-            print(f'\tCannot decode the output. Error msg: {e}\n')
+            print(f'\tCannot decode the output. Error msg: {e}')
         else:
             ## loop all the results in the output and extract them one by one
             for propType in output_decoded:
@@ -237,13 +237,13 @@ class desc_calculator_chemaxon(object):
             from rdkit import Chem
             mol = Chem.MolFromSmiles(smi)
         except Exception as e:
-            print(f'\tThis SMILES cannot be transfer into mol using RDKit: {smi}; Error msg: {e}\n')
+            print(f'\tThis SMILES cannot be transfer into mol using RDKit: {smi}; Error msg: {e}')
         else:
             try:
                 result = self._run_cxAPI(mol)
                 dataDict_out =  self._parse_result(result, detailedInfo=False)
             except Exception as e:
-                print(f'\tThis mol cannot be calculated property using ChemAxon; Error msg: {e}\n')
+                print(f'\tThis mol cannot be calculated property using ChemAxon; Error msg: {e}')
             else:
                 for desc in dataDict_out:
                     if desc not in ["elemental-analysis_formula", "polar-surface-area_unit"]:
@@ -341,20 +341,20 @@ def calc_desc_from_table(dataTable, colName_mid, colName_smi, desc_calculator):
 ####################################################################
 def extract_custom_desc(dataTable, colName_mid, colName_custom_desc):
     if colName_custom_desc is not None:
-        print(f"\t\tNow extracting the custom desc using the defined column names: {colName_custom_desc}\n")
+        print(f"\t\tNow extracting the custom desc using the defined column names: {colName_custom_desc}")
         list_custom_desc = colName_custom_desc.split(',')
         list_available_desc = []
         for desc in list_custom_desc:
             if desc in dataTable.columns:
                 list_available_desc.append(desc)
             else:
-                print(f"\t\tWarning! This custom descriptor <{desc}> is not in the data table, so ignored this column\n")
+                print(f"\t\tWarning! This custom descriptor <{desc}> is not in the data table, so ignored this column")
         print(f"\t\tThere are total {len(list_available_desc)} custom descriptors extracted")
 
         if len(list_available_desc) > 0:
             dataTable_desc = dataTable[[colName_mid]+list_available_desc]
             dataTable_desc = dataTable_desc.rename(columns={col: f"custDesc_{col}" for col in list_available_desc})
-            print(f'\t\tThe custom desciptor table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns\n')
+            print(f'\t\tThe custom desciptor table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
             # dataTable = dataTable.drop(columns=list_available_desc)
             # print(f'\tAfter extracting the custom desc, the table has <{dataTable_desc.shape[0]}> rows and <{dataTable_desc.shape[1]}> columns')
         else:
@@ -387,7 +387,7 @@ def descriptor_norm(dataTable, cols_ignore):
                 v_mean, v_std, v_max, v_min = _calc_z_score(desc_values)
                 dataTable_norm[col] = 0 if v_std ==0 else (dataTable_norm[col] - v_mean)/ v_std
             except Exception as e:
-                print(f"Warning! This desc <{col}> cannot be normalized using Z-score! Error msg: {e}\n")
+                print(f"Warning! This desc <{col}> cannot be normalized using Z-score! Error msg: {e}")
             else:
                 dict_norm_param[col] = {}
                 dict_norm_param[col]['mean'] = v_mean
@@ -415,7 +415,7 @@ def descriptor_imputation(dataTable, cols_ignore, descType=None):
                 with pd.option_context('future.no_silent_downcasting', True):
                     dataTable_imput[col] = dataTable_imput[col].fillna(median_values)
             except Exception as e:
-                print(f"Warning! This nan in desc <{col}> cannot be imputated using median ! Error msg: {e}\n")
+                print(f"Warning! This nan in desc <{col}> cannot be imputated using median ! Error msg: {e}")
             else:
                 dict_imput_param[col] = {}
                 dict_imput_param[col]['median'] = median_values
@@ -436,7 +436,7 @@ def Args_Prepation(parser_desc):
     # parser.add_argument('--detectEncoding', action="store_true", help='detect the encoding type of the csv file')
     parser.add_argument('--colId', action="store", default='Compound Name', help='The column name of the compound identifier')
     parser.add_argument('--colSmi', action="store", default='Structure', help='The column name of the compound smiles')
-    parser.add_argument('--colPreCalcDesc', action="store", default="NoCustomDescriptor", help='comma separated string e.g., <desc_1,desc_2,desc_3>')   
+    parser.add_argument('--colPreCalcDesc', action="store", default=None, help='comma separated string e.g., <desc_1,desc_2,desc_3>')   
 
     parser.add_argument('--desc_fps', action="store", default="True", help='calculate the molecular fingerprints')
     parser.add_argument('--desc_rdkit', action="store", default="True", help='calculate the molecular property using RDKit')
@@ -472,9 +472,9 @@ def main():
         desc_fps = True if args.desc_fps=="True" else False
         desc_rdkit = True if args.desc_rdkit=="True" else False
         desc_cx = True if args.desc_cx=="True" else False
+        colName_custom_desc = args.colPreCalcDesc
         do_norm = True if args.norm=='True' else False
         do_imputation = True if args.imput=='True' else False
-        colName_custom_desc = args.colPreCalcDesc
         
         ## output folder
         import os
@@ -491,12 +491,12 @@ def main():
     ## ------------ load data ------------
     import pandas as pd
     dataTable_raw = pd.read_csv(fileNameIn, sep=sep)
-    print(f"\tDescGen load data table with shape: {dataTable_raw.shape}\n")
-    assert colName_mid in dataTable_raw.columns, f"\tColumn name for mol ID <{colName_mid}> is not in the table.\n"
-    assert colName_smi in dataTable_raw.columns, f"\tColumn name for mol smiles <{colName_smi}> is not in the table.\n"
+    print(f"\t{dataTable_raw.shape}")
+    assert colName_mid in dataTable_raw.columns, f"\tColumn name for mol ID <{colName_mid}> is not in the table."
+    assert colName_smi in dataTable_raw.columns, f"\tColumn name for mol smiles <{colName_smi}> is not in the table."
 
     table_dict = {}
-    print(f"\tCalculating descriptors (RDKit: {desc_rdkit}; FPs {desc_fps}; ChemAxon {desc_cx}) ...\n")
+    print(f"\tCalculating descriptors (RDKit: {desc_rdkit}; FPs {desc_fps}; ChemAxon {desc_cx}) ... ")
     ## ------------ calculate rdkit properties ------------
     if desc_rdkit:
         app = 'rdkit'
@@ -506,18 +506,18 @@ def main():
              
         table_dict[app] = pd.DataFrame.from_dict(result_dict_rd).T
         table_dict[app].to_csv(f"{folderPathOut}/descriptors_{app}_raw.csv", index=False)
-        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.\n")
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.")
 
     ## ------------ calculate mol fingerprints ------------
     if desc_fps:
         app = 'fingerprints'
-        print(f"\tNow calculating the molecular <{app}> descriptors\n")
+        print(f"\tNow calculating the molecular <{app}> descriptors")
         calculator_fp = desc_calculator_morganFPs(radius=desc_calc_param['fp_radius'], nBits=desc_calc_param['fp_nBits'])
         result_dict_fp = calc_desc_from_table(dataTable_raw, colName_mid, colName_smi, calculator_fp)
 
         table_dict[app] = pd.DataFrame.from_dict(result_dict_fp).T
-        table_dict[app].to_csv(f"{folderPathOut}/descriptors_raw_{app}.csv", index=False)
-        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.\n")
+        table_dict[app].to_csv(f"{folderPathOut}/descriptors_{app}_raw.csv", index=False)
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_{app}_raw.csv>.")
 
     ## ------------ calculate chemAxon properties ------------
     if desc_cx:
@@ -528,16 +528,15 @@ def main():
 
         table_dict[app] = pd.DataFrame.from_dict(result_dict_cx).T
         table_dict[app].to_csv(f"{folderPathOut}/descriptors_raw_{app}.csv", index=False)
-        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>.\n")
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>.")
     
     ## ------------ extract the custom desc ------------
-    print(colName_custom_desc)
-    if colName_custom_desc != "NoCustomDescriptor":
+    if colName_custom_desc is not None:
         app = 'custom'
-        print(f"\tNow extracting the <{app}> descriptors\n")
+        print(f"\tNow extracting the <{app}> descriptors")
         table_dict[app] = extract_custom_desc(dataTable_raw, colName_mid, colName_custom_desc)
         table_dict[app].to_csv(f"{folderPathOut}/descriptors_raw_{app}.csv", index=False)
-        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>\n")
+        print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>.")
 
     ## ------------ process & merge output ------------
     dataTable_desc_merged = pd.DataFrame(columns=[colName_mid])
@@ -545,7 +544,7 @@ def main():
         data_table_prep = table_dict[app]
         ## merge
         dataTable_desc_merged = dataTable_desc_merged.merge(right=data_table_prep, on='Compound Name', how='outer')
-    print(f"\tThe merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors\n")
+    print(f"\tThe merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors")
     
     ## ------------------- normalization -------------------
     dict_norm_param_all = {}
@@ -561,9 +560,9 @@ def main():
         dict_imput_param_all.update(dict_imput_param)
 
     ## save merged desc
-    print(f"\tAfter normalization & imputation, the merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors\n")
+    print(f"\tAfter normalization & imputation, the merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors")
     dataTable_desc_merged.to_csv(filePathOut, index=False)
-    print(f"\tThe prepared <all> descriptor data {dataTable_desc_merged.shape} has been saved to <{filePathOut}>\n")
+    print(f"\tThe prepared <all> descriptor data {dataTable_desc_merged.shape} has been saved to <{filePathOut}>.")
     
 
     ## ------------------- param file save to json -------------------
@@ -571,22 +570,20 @@ def main():
     json_file_calc_param = f"{folderPathOut}/feature_calculator_param.json"
     with open(json_file_calc_param, 'w') as ofh_dpfh:
         json.dump(desc_calc_param, ofh_dpfh)
-        print(f"\tThe calculator paramater data has been saved to <{json_file_calc_param}>\n")
+        print(f"\tThe calculator paramater data has been saved to <{json_file_calc_param}>.")
 
     import json
     json_file_norm_param = f"{folderPathOut}/feature_normalization_params.json"
     with open(json_file_norm_param, 'w') as npdfh:
         json.dump(dict_norm_param_all, npdfh)
-        print(f"\tThe normalization paramater data has been saved to <{json_file_norm_param}>\n")
+        print(f"\tThe normalization paramater data has been saved to <{json_file_norm_param}>.")
     
     json_file_imput_param = f"{folderPathOut}/feature_imputation_params.json"
     with open(json_file_imput_param, 'w') as ipdfh:
         json.dump(dict_imput_param_all, ipdfh)
-        print(f"\tThe imputation paramater data has been saved to <{json_file_imput_param}>\n")
+        print(f"\tThe imputation paramater data has been saved to <{json_file_imput_param}>.")
         
     # return result_dict
 
 if __name__ == '__main__':
     main()
-
-    

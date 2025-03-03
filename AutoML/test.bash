@@ -33,8 +33,8 @@ colPreCalcDesc="ADME MDCK(WT) Permeability;Mean;A to B Recovery (%),ADME MDCK(WT
 ## S2: split params
 split='diverse'     #'random', 'diverse', 'temporal'
 colSplit="Split"
-CV=10
-hasVal=True
+CV="10"
+hasVal="True"
 
 ## S3: calc descriptors
 desc_rdkit="True"
@@ -59,8 +59,8 @@ ml_knn="True"
 doHPT="False"
 
 ## sys configs
-rng=666666
-njobs=-1
+rng="666666"
+njobs="-1"
 logy="True"
 
 ## output
@@ -91,7 +91,7 @@ $bash2py python "$JobDir"/DescGen.py -i "$tmpFile_1_clean" -d "$sep" --colId "$c
 $bash2py python "$JobDir"/FeatSele.py -x "$tmpFile_3_desc" -y "$tmpFile_1_y" -s "$tmpFile_2_split" -d "$sep" --colId "$colId" --coly "$colAssay" --cols "$colSplit" --modelType "$modelType" --MissingValueFilter "$nanFilter" --impuParamJson "$tmpFile_ImpuParam" --VarianceFilter "$VFilter" --L2Filter "$L2Filter" --FIFilter "$FIFilter" -o "$tmpFile_4_all4ml"
 
 ## ------------------ step-5 ML modeling ------------------
-$bash2py python "$JobDir"/ModelBuilding_r.py -i "$tmpFile_4_all4ml" -d "$sep" --colId "$colId" --coly "$colAssay" --cols "$colSplit" --linear "$ml_linear" --rf "$ml_rf" --svm "$ml_svm" --mlp "$ml_mlp" --knn "$ml_knn" --njobs "$njobs" --rng "$rng" --logy $logy --doHPT "$doHPT" --calcParamJson "$tmpFile_CalcParam" --normParamJson "$tmpFile_NormParam" --impuParamJson "$tmpFile_ImpuParam" -o "$tmpFile_5_modelPerfm"
+$bash2py python "$JobDir"/ModelBuilding.py -i "$tmpFile_4_all4ml" -d "$sep" --colId "$colId" --coly "$colAssay" --cols "$colSplit" --modelType "$modelType" --linear "$ml_linear" --rf "$ml_rf" --svm "$ml_svm" --mlp "$ml_mlp" --knn "$ml_knn" --njobs "$njobs" --rng "$rng" --logy $logy --doHPT "$doHPT" --calcParamJson "$tmpFile_CalcParam" --normParamJson "$tmpFile_NormParam" --impuParamJson "$tmpFile_ImpuParam" -o "$tmpFile_5_modelPerfm"
 
 ## ------------------ step-6 to be added ------------------
 

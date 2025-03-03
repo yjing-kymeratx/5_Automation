@@ -69,7 +69,7 @@ def load_csv_file(fileNameIn, colName_mid, colName_smi, custDesc_list=[], colNam
         if len(custDesc_list) > 0:
             for custDesc in custDesc_list:
                 if dataTable_raw[custDesc].notna()[idx]:
-                    mol_dict[idx][custDesc] = float(dataTable_raw[custDesc][idx])
+                    mol_dict[idx][custDesc] = dataTable_raw[custDesc][idx]
                 else:
                     mol_dict[idx][custDesc] = np.nan
     return mol_dict
