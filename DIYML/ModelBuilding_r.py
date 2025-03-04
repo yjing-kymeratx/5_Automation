@@ -415,6 +415,7 @@ def main():
         if model_dict_all[ml_methed] is not None:
             fileNameOut_model = f"{folderPathOut_model}/{ml_methed}_models.pickle"
             with open(fileNameOut_model, 'wb') as ofh_models:
+                model_dict = model_dict_all[ml_methed]
                 pickle.dump(model_dict, ofh_models)
                 print(f"\tThe {ml_methed} model is saved to <{fileNameOut_model}>")
 

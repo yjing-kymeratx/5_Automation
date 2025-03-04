@@ -332,6 +332,10 @@ def main():
         dataTable_test = dataTable_raw[dataTable_raw[colName_split]=='Test']
         X_test, y_test = dataTable_test[colName_X], dataTable_test[colName_y]
         print(f"\tTest_X: {X_test.shape}; Test_y: {y_test.shape}")
+        
+        ## All
+        X_all, y_all = dataTable_raw[colName_X], dataTable_raw[colName_y]
+        print(f"\tAll_X: {X_all.shape}; All_y: {y_all.shape}")
 
     ## ------------------------ models ------------------------ 
     model_dict_all = {}
@@ -414,10 +418,12 @@ def main():
     import pickle
     for ml_methed in model_dict_all:
         if model_dict_all[ml_methed] is not None:
+            model_dict = model_dict_all[ml_methed]
+            model_dict['model'] = step_2_model_training(sk_model=model_dict['model'], X=X_all, y=y_all, logy=logy, doHPT=False, search_space=None, scoring='neg_mean_absolute_error', n_jobs=n_jobs)
+            
             fileNameOut_model = f"{folderPathOut_model}/{ml_methed}_models.pickle"
             with open(fileNameOut_model, 'wb') as ofh_models:
                 pickle.dump(model_dict, ofh_models)
                 print(f"\tThe {ml_methed} model is saved to <{fileNameOut_model}>\n")
-
 if __name__ == '__main__':
     main()
