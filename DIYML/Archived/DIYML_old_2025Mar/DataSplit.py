@@ -22,7 +22,7 @@ def mute_rdkit():
 ## ================================================================================================
 ## ==================================== random split ==============================================
 ## ================================================================================================
-def nFoldSplit_random(dataTable, colName_mid='Compound Name', CV=10, rng=666666, hasVal=True, colName_split='Split'):
+def nFoldSplit_random(dataTable, colName_mid='Compound Name', CV=10, rng=666666, hasVal=True):
     ds_size = dataTable.shape[0]
     assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})\n"
 
@@ -42,15 +42,14 @@ def nFoldSplit_random(dataTable, colName_mid='Compound Name', CV=10, rng=666666,
     print(f"\tSplit the data (n={len(list_mol_idx)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})\n")
 
     # Apply the function to assign values to the new column 'A'
-    dataTable_split[colName_split] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
-    dataTable_split = dataTable_split[[colName_mid, colName_split]]
+    dataTable_split[f'Split'] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
     return dataTable_split
 
 
 ## ================================================================================================
 ## ==================================== temporal split ============================================
 ## ================================================================================================
-def nFoldSplit_temporal(dataTable, colName_mid='Compound Name', colName_date="Created On", CV=10, hasVal=True, colName_split='Split'):
+def nFoldSplit_temporal(dataTable, colName_mid='Compound Name', colName_date="Created On", CV=10, hasVal=True):
     ds_size = dataTable.shape[0]
     assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})\n"
 
@@ -77,15 +76,14 @@ def nFoldSplit_temporal(dataTable, colName_mid='Compound Name', colName_date="Cr
             print(f"\tSplit the data (n={len(list_mol_idx)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})\n")
             
             # Apply the function to assign values to the new column 'A'
-            dataTable_split[colName_split] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
-    dataTable_split = dataTable_split[[colName_mid, colName_split]]
+            dataTable_split[f'Split'] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
     return dataTable_split 
 
 
 ## ================================================================================================
 ## ==================================== diverse split ============================================
 ## ================================================================================================
-def nFoldSplit_diverse(dataTable, colName_mid='Compound Name', colName_smi="Structure", CV=10, rng=666666, hasVal=True, colName_split='Split'):
+def nFoldSplit_diverse(dataTable, colName_mid='Compound Name', colName_smi="Structure", CV=10, rng=666666, hasVal=True):
     ds_size = dataTable.shape[0]
     assert CV*2 < ds_size, f"\tError, the dataset (N={ds_size}) is too small to do a {CV}_fold split! Please decrease the CV value ({CV})\n"
 
@@ -119,8 +117,7 @@ def nFoldSplit_diverse(dataTable, colName_mid='Compound Name', colName_smi="Stru
     print(f"\tSplit the data (n={len(fps)}) into Train({len(idx_train)}), Val({len(idx_val)}), and Test({len(idx_test)})\n")
 
     # Apply the function to assign values to the new column 'A'
-    dataTable_split[colName_split] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
-    dataTable_split = dataTable_split[[colName_mid, colName_split]]
+    dataTable_split[f'Split'] = dataTable_split.index.to_series().apply(lambda x: assign_value(x, idx_train, idx_val, idx_test))
 
     return dataTable_split
 
@@ -163,18 +160,31 @@ def assign_value(idx, list_train, list_val, list_test):
         return 'Training'
 
 
-## 
-def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='Structure',  split_method='random', 
-               colName_date='Created On',CV=10, rng=666666, hasVal=True, colName_split='Split', filePathOut="./Results/data_split.csv"):
+def main():
     print(f">>>>Spliting dataset ...\n")
-    import time
-    beginTime = time.time()
+    args = Args_Prepation(parser_desc='Preparing the input files and the descriptors')
+    fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
+    sep = args.delimiter 
+    colName_mid = args.colId    # 'Compound Name'
+    colName_smi = args.colSmi    # 'Structure'
+    colName_date = args.colDate    # 'Created On'
+
+    split_method = args.split
+    CV = int(args.CV)
+    rng = int(args.rng)
+    hasVal = True if args.hasVal == 'True' else False
+
+    filePathOut = args.output
+    import os
+    folderPathOut = os.path.dirname(filePathOut)    ## './results'
+    os.makedirs(folderPathOut, exist_ok=True)
 
     ## ------------ load data ------------
     import pandas as pd
     dataTable_raw = pd.read_csv(fileNameIn, sep=sep)
     print(f"\t{dataTable_raw.shape}")
     assert colName_mid in dataTable_raw.columns, f"\tColumn name for mol ID <{colName_mid}> is not in the table.\n"
+        
 
     print(f"\tData split method: {split_method}")
     if split_method not in ['random', 'temporal', 'diverse']:
@@ -183,52 +193,22 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
         print(f"\tUse <random> instead\n")
     ## ------------ calculate rdkit properties ------------
     if split_method == 'random':
-        dataTable_split = nFoldSplit_random(dataTable_raw, colName_mid, CV=CV, rng=rng, hasVal=hasVal, colName_split=colName_split)
+        dataTable_split = nFoldSplit_random(dataTable_raw, colName_mid, CV=CV, rng=rng, hasVal=hasVal)
 
     ## ------------ calculate mol fingerprints ------------
     elif split_method == 'temporal':
         assert colName_date is not None, f"\tColumn name for date <{colName_date}> should not be None when using {split_method} split\n"
         assert colName_date in dataTable_raw.columns, f"\tColumn name for date <{colName_date}> should be in the table column when using {split_method} split\n"
-        dataTable_split = nFoldSplit_temporal(dataTable_raw, colName_mid, colName_date, CV=CV, hasVal=hasVal, colName_split=colName_split)
+        dataTable_split = nFoldSplit_temporal(dataTable_raw, colName_mid, colName_date, CV=CV, hasVal=hasVal)
 
     ## ------------ calculate chemAxon properties ------------
     elif split_method == 'diverse':
         assert colName_smi in dataTable_raw.columns, f"\tColumn name for mol smiles <{colName_smi}> is not in the table.\n"
-        dataTable_split = nFoldSplit_diverse(dataTable_raw, colName_mid, colName_smi, CV=CV, rng=rng, hasVal=hasVal, colName_split=colName_split)
+        dataTable_split = nFoldSplit_diverse(dataTable_raw, colName_mid, colName_smi, CV=CV, rng=rng, hasVal=hasVal)
 
-    dataTable_split = dataTable_split.merge(right=dataTable_raw, on=colName_mid, how='inner')
-    
     ## ------------ save the split ------------
-    import os
-    folderPathOut = os.path.dirname(filePathOut)    ## './results'
-    os.makedirs(folderPathOut, exist_ok=True)
-        
     dataTable_split.to_csv(filePathOut, index=False)
     print(f"\tThe cleaned data table has been saved to {filePathOut}\n")
-    print(f">>>>The Data Split process takes {round(time.time()-beginTime, 2)} sec")
-
-    return filePathOut
-
-
-def main():
-    args = Args_Prepation(parser_desc='Preparing the input files and the descriptors')
-    fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
-    sep = args.delimiter 
-    colName_mid = args.colId    # 'Compound Name'
-    colName_smi = args.colSmi    # 'Structure'
-    colName_date = args.colDate    # 'Created On'
-    colName_split = args.cols
-
-    split_method = args.split
-    CV = int(args.CV)
-    rng = int(args.rng)
-    hasVal = True if args.hasVal in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-
-    filePathOut = args.output
-
-
-    ## run code
-    filePathOut_split = run_script(fileNameIn, sep, colName_mid, colName_smi, split_method, colName_date, CV, rng, hasVal, colName_split, filePathOut)
 
 if __name__ == '__main__':
     main()

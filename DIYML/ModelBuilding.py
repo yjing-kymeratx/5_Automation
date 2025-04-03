@@ -31,6 +31,7 @@
 
 ## <===================== model initiate =====================>
 def step_1_model_init(ml_methed, n_jobs=-1, rng=666666):
+    import sklearn
     ml_methed = ml_methed.lower()
     ## -------------------- random forest --------------------
     if ml_methed in ['rf', 'random forest', 'randomforest']:
@@ -47,7 +48,7 @@ def step_1_model_init(ml_methed, n_jobs=-1, rng=666666):
     ## -------------------- MLP --------------------
     elif ml_methed in ['mlp', 'ann']:
         from sklearn.neural_network import MLPRegressor
-        sk_model = MLPRegressor(random_state=rng, max_iter=100, early_stopping=True)
+        sk_model = MLPRegressor(random_state=rng, max_iter=300, early_stopping=True)
         search_space = {'hidden_layer_sizes': [(128,), (128, 128), (128, 128, 128)], 'activation': ['logistic', 'tanh', 'relu'], 'solver': ['sgd', 'adam'], 'alpha': [0.1, 0.01, 0.001, 0.0001]}
 
     ## -------------------- KNN --------------------
@@ -68,7 +69,7 @@ def step_1_model_init(ml_methed, n_jobs=-1, rng=666666):
 
 ## <===================== model training =====================>
 def _HyperParamSearch(sk_model, X, y, search_space=None, search_method='grid', scoring='neg_mean_absolute_error', nFolds=5, n_jobs=-1):
-    print(f"\t\tStart Hyper-Parameter Tunning ...")
+    print(f"\t\tStart Hyper-Parameter Tunning ...\n")
     SearchResults = {'best_model': None, 'best_score':None, 'best_param':None}
 
     # if search_method == 'grid':
@@ -86,8 +87,8 @@ def _HyperParamSearch(sk_model, X, y, search_space=None, search_method='grid', s
     SearchResults['best_param'] = optimizer.best_estimator_.get_params()
 
     ## export
-    print(f"\t\tThe best {scoring}: {SearchResults['best_score']}\n\t\tThe best hp-params: {SearchResults['best_param']}")
-    print(f"\t\tComplete Hyper-Parameter Tunning ...")
+    print(f"\t\tThe best {scoring}: {SearchResults['best_score']}\n\t\tThe best hp-params: {SearchResults['best_param']}\n")
+    print(f"\t\tComplete Hyper-Parameter Tunning ...\n")
     return SearchResults
 
 ##
@@ -98,24 +99,35 @@ def step_2_model_training(sk_model, X, y, logy=False, doHPT=False, search_space=
     import numpy as np
     # X = X.to_numpy()
     y = y.to_numpy().reshape((len(y), ))
-    y = np.log10(y) if logy else y
+    # Compute log10, replacing zeros with a small positive number (e.g., 1e-10)
+    if logy:
+        y = np.where(y <= 0, 1e-10, y)
+        y_log = np.log10(y)
+    else:
+        y_log = y
+    # y = np.log10(y) if logy else y
 
     ## ----- hyper parameter search ----------------
     if doHPT and search_space is not None:
-        HPSearchResults = _HyperParamSearch(sk_model, X, y, search_space, search_method='grid', scoring=scoring, nFolds=5, n_jobs=n_jobs)
+        HPSearchResults = _HyperParamSearch(sk_model, X, y_log, search_space, search_method='grid', scoring=scoring, nFolds=5, n_jobs=n_jobs)
         sk_model = sk_model.set_params(**HPSearchResults['best_param'])    #optimizer.best_estimator_
 
     ## ----- fit the model -----
-    sk_model.fit(X, y)
+    sk_model.fit(X, y_log)
 
     ## ----------------------------------------------------------------        
-    print(f"\t\tThe model training costs time = {(time.time()-beginTime):.2f} s ................")
+    print(f"\t\tThe model training costs time = {(time.time()-beginTime):.2f} s ................\n")
     return sk_model
 
 ## <===================== model predict =====================>
 def step_3_make_prediction(sk_model, X, logy=False):
     y_pred = sk_model.predict(X)
     y_pred = 10**y_pred if logy else y_pred
+
+    ## replacing all "inf" values with the max values
+    import numpy as np
+    y_pred[np.isinf(y_pred)] = np.nan
+    y_pred[np.isnan(y_pred)] = np.nanmax(y_pred)
     return y_pred
 
 ## <===================== model evaluate =====================>
@@ -134,27 +146,32 @@ def step_4_make_comparison(y_pred, y_true, dsLabel='dataset'):
         dataDict_evaluation[f'Spearman_R2'] = float(spearmanr(y_pred, y_true)[0])**2    ## rank-order correlation
         dataDict_evaluation[f'KendallTau_R2'] = float(kendalltau(y_pred, y_true)[0])**2        ## Kendall's tau
     except Exception as e:
-        print(f"\t\tCannot compare y_pred & y_true: {e}")
+        print(f"\t\tCannot compare y_pred & y_true: {e}\n")
     else:          
         ## print out the results
         mae = round(dataDict_evaluation[f'MAE'], 2)
         pr2 = round(dataDict_evaluation[f'Pearson_R2'], 2)
         sr2 = round(dataDict_evaluation[f'Spearman_R2'], 2)
-        print(f"\t\t{dsLabel}=> MAE: {mae}; Pearson-R2: {pr2}; Spearman-R2: {sr2}")
+        print(f"\t\t{dsLabel}=> MAE: {mae}; Pearson-R2: {pr2}; Spearman-R2: {sr2}\n")
         # print(f"\t\tKendall-R2: {dataDict_evaluation['KendallTau_R2']:.2f}")
     return dataDict_evaluation
 
 ## <===================== resultl plot =====================>
 def step_5_plot_pred_vs_expt(dataTable, colName_x='Prediction', colName_y='Experiment', colName_color='Split', take_log=True, diagonal=True, sideHist=True, figTitle=None, outputFolder='./Plot'):
     ## --------- Start with a square Figure ---------
+    import numpy as np
     import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(8, 8))
+
+    ## Data    
     x, y = dataTable[colName_x], dataTable[colName_y]
     if take_log:
-        import numpy as np
+        x.replace(0, 1e-10, inplace=True)
+        y.replace(0, 1e-10, inplace=True)
         x, y = np.log10(x), np.log10(y)
-        label_x = f"Prediction(log)" if take_log else 'Prediction'    # f"{colName_x}(log)" if take_log else colName_x
-        label_y = f"Experiment(log)" if take_log else 'Experiment'    # f"{colName_y}(log)" if take_log else colName_y
+
+    label_x = f"Prediction(log)" if take_log else 'Prediction'    # f"{colName_x}(log)" if take_log else colName_x
+    label_y = f"Experiment(log)" if take_log else 'Experiment'    # f"{colName_y}(log)" if take_log else colName_y
 
     ## --------- add histgram along each side of the axis ---------
     if sideHist:
@@ -204,6 +221,7 @@ def step_5_plot_pred_vs_expt(dataTable, colName_x='Prediction', colName_y='Exper
         diagonalLine = ax.plot([ax_min, ax_max], [ax_min, ax_max], c='lightgray', linestyle='-')        
 
     figTitle = f"Pred vs Expt" if figTitle is None else figTitle
+    figTitle = f"{figTitle}_log" if take_log else figTitle
     fig.suptitle(figTitle, fontsize=24)
 
     ## --------- Save the figure ---------
@@ -211,6 +229,7 @@ def step_5_plot_pred_vs_expt(dataTable, colName_x='Prediction', colName_y='Exper
     os.makedirs(outputFolder, exist_ok=True)
     figPath = f"{outputFolder}/{figTitle}.png"
     plt.savefig(figPath)
+
     return fig
 
 ## <===================== others =====================>
@@ -252,72 +271,40 @@ def Args_Prepation(parser_desc):
     args = parser.parse_args()
     return args
 
-####################################################################
-######################### main function ############################
-####################################################################
-def main():
+##
+def runScript(fileNameIn, sep=',', colName_mid='Compound Name', colName_split='Split', colName_y='IC50_uM',
+              modelType="regression", ml_method_list=['linear'], rng=666666, n_jobs=-1, logy=False, doHPT=False, 
+              desc_calc_param={}, desc_norm_param={}, desc_impu_param={}, 
+              filePathOut="./Results/performance_results.csv"):
+    
     print(f">>>>Building ML models ...")
+    import time
+    beginTime = time.time()
+
     # Mute warining
     import warnings
     warnings.filterwarnings("ignore")
-    
-    ## ------------ load args ------------
-    args = Args_Prepation(parser_desc='ML model building')
 
-    if True:
-        fileNameIn = args.input
-        sep = args.delimiter
-        colName_mid = args.colId
-        colName_split = args.cols
-        colName_y = args.coly
+    ## ------------- output folder -------------
+    import os
+    folderPathOut = os.path.dirname(filePathOut)    ## './results'
+    os.makedirs(folderPathOut, exist_ok=True)   
 
-        modelType = args.modelType
-        ml_method_list = []
-        if args.linear == 'True':
-            ml_method_list.append('linear')
-        if args.rf == 'True':
-            ml_method_list.append('rf')
-        if args.svm == 'True':
-            ml_method_list.append('svm')
-        if args.mlp == 'True':
-            ml_method_list.append('mlp')
-        if args.knn == 'True':
-            ml_method_list.append('knn')
+    ## model folder
+    folderPathOut_model = f"{folderPathOut}/Models"
+    os.makedirs(folderPathOut_model, exist_ok=True)
 
-        rng = int(args.rng)
-        n_jobs = int(args.njobs)
-        logy = True if args.logy == 'True' else False
-        doHPT = True if args.doHPT == 'True' else False
+    ## plot folder
+    folderPathOut_plot = f"{folderPathOut}/Plots"
+    os.makedirs(folderPathOut_plot, exist_ok=True)
 
-        ## output folder
-        import os
-        filePathOut = args.output 
-        folderPathOut = os.path.dirname(filePathOut)    ## './results'
-        os.makedirs(folderPathOut, exist_ok=True)   
-
-        ## model folder
-        folderPathOut_model = f"{folderPathOut}/Models"
-        os.makedirs(folderPathOut_model, exist_ok=True)
-
-        ## plot folder
-        folderPathOut_plot = f"{folderPathOut}/Plots"
-        os.makedirs(folderPathOut_plot, exist_ok=True)
-
-        ## ------------ load params for desc calc ------------
-        import json
-        with open(args.calcParamJson, 'r') as ifh_dc:
-            desc_calc_param = json.load(ifh_dc)
-        with open(args.normParamJson, 'r') as ifh_dn:
-            desc_norm_param = json.load(ifh_dn)
-        with open(args.impuParamJson, 'r') as ifh_di:
-            desc_impu_param = json.load(ifh_di)
 
     ## ------------------------ load data ------------------------
-    import pandas as pd
-    dataTable_raw = pd.read_csv(fileNameIn, sep=sep)
-    colName_X = [col for col in dataTable_raw.columns if col not in [colName_mid, colName_split, colName_y]]
-
     if True:
+        import pandas as pd
+        dataTable_raw = pd.read_csv(fileNameIn, sep=sep)
+        colName_X = [col for col in dataTable_raw.columns if col.split('_')[0] in ['rd', 'fp', 'cx', 'custDesc']]
+
         ## training
         dataTable_train = dataTable_raw[dataTable_raw[colName_split]=='Training']
         X_train, y_train = dataTable_train[colName_X], dataTable_train[colName_y]
@@ -332,15 +319,15 @@ def main():
         dataTable_test = dataTable_raw[dataTable_raw[colName_split]=='Test']
         X_test, y_test = dataTable_test[colName_X], dataTable_test[colName_y]
         print(f"\tTest_X: {X_test.shape}; Test_y: {y_test.shape}")
-        
+
         ## All
         X_all, y_all = dataTable_raw[colName_X], dataTable_raw[colName_y]
         print(f"\tAll_X: {X_all.shape}; All_y: {y_all.shape}")
 
     ## ------------------------ models ------------------------ 
     model_dict_all = {}
-    model_dict_performance = {}
-    scoring = 'neg_mean_absolute_error'
+    # model_dict_performance = {}
+    scoring = 'r2'    # 'neg_mean_absolute_error'
     ##
     for ml_methed in ml_method_list:
         model_dict = {'data': {'training': dataTable_train[colName_mid], 'validation': dataTable_val[colName_mid], 'test': dataTable_test[colName_mid]},
@@ -353,6 +340,7 @@ def main():
         print(f"\t>>Now training the <{ml_methed}> model")
         ## ------------ training ------------
         sk_model, search_space = step_1_model_init(ml_methed, n_jobs=n_jobs, rng=rng)
+        
         sk_model = step_2_model_training(sk_model, X_train, y_train, logy=logy, doHPT=doHPT, search_space=search_space, scoring=scoring, n_jobs=n_jobs) 
         model_dict['model'] = sk_model
 
@@ -371,6 +359,11 @@ def main():
         ## ------------ plot pred vs expt ------------
         model_dict['plot'] = step_5_plot_pred_vs_expt(dataTable=pd.concat([dataTable_train, dataTable_val, dataTable_test]), 
                                                       colName_x=col_pred, colName_y=colName_y, colName_color=colName_split,
+                                                      take_log=False, diagonal=True, sideHist=True, outputFolder=folderPathOut_plot, 
+                                                      figTitle=f"Predictedn_VS_Experimental_{ml_methed}")
+
+        model_dict['plot_log'] = step_5_plot_pred_vs_expt(dataTable=pd.concat([dataTable_train, dataTable_val, dataTable_test]), 
+                                                      colName_x=col_pred, colName_y=colName_y, colName_color=colName_split,
                                                       take_log=True, diagonal=True, sideHist=True, outputFolder=folderPathOut_plot, 
                                                       figTitle=f"Predictedn_VS_Experimental_{ml_methed}")
         ##        
@@ -381,7 +374,7 @@ def main():
     ## save
     fileNameOut_pred = f"{folderPathOut}/prediction_results.csv"
     dataTable_pred_all.to_csv(fileNameOut_pred, index=False)
-    print(f"\tThe prediction data are saved to <{fileNameOut_pred}>")
+    print(f"\tThe prediction data are saved to <{fileNameOut_pred}>\n")
 
     ## ------------ merge/concact & save performance data ------------
     dataDict_perform_all = {}
@@ -398,7 +391,7 @@ def main():
     ## save
     fileNameOut_perf = filePathOut    # f"{folderPathOut}/performance_results.csv"
     dataTable_perform_all.to_csv(fileNameOut_perf, index=False)
-    print(f"\tThe performance/evaluation data are saved to <{fileNameOut_perf}>")
+    print(f"\tThe performance/evaluation data are saved to <{fileNameOut_perf}>\n")
     
     ## ------------ find best model ------------
     # select_matrics, select_standar = 'Validation_MAE', 'min'
@@ -414,7 +407,7 @@ def main():
     model_dict_all['Best_AutoML'] = model_dict_all[ml_sele] if ml_sele in model_dict_all else {}
     print(f"\tThe BEST model is {ml_methed} model.\n")
 
-## ------------ save & export model ------------
+## ------------ retrain & save & export model ------------
     import pickle
     for ml_methed in model_dict_all:
         if model_dict_all[ml_methed] is not None:
@@ -425,5 +418,58 @@ def main():
             with open(fileNameOut_model, 'wb') as ofh_models:
                 pickle.dump(model_dict, ofh_models)
                 print(f"\tThe {ml_methed} model is saved to <{fileNameOut_model}>\n")
+    
+    print(f">>>>The Model building process takes {round(time.time()-beginTime, 2)} sec")
+    return None
+
+
+####################################################################
+######################### main function ############################
+####################################################################
+def main():
+    ## ------------ load args ------------
+    args = Args_Prepation(parser_desc='ML model building')
+
+    fileNameIn = args.input
+    sep = args.delimiter
+    colName_mid = args.colId
+    colName_split = args.cols
+    colName_y = args.coly
+
+    modelType = args.modelType
+    ml_method_list = []
+    if args.linear in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
+        ml_method_list.append('linear')
+    if args.rf in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
+        ml_method_list.append('rf')
+    if args.svm in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
+        ml_method_list.append('svm')
+    if args.mlp in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
+        ml_method_list.append('mlp')
+    if args.knn in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']:
+        ml_method_list.append('knn')
+
+    rng = int(args.rng)
+    n_jobs = int(args.njobs)
+    logy = True if args.logy in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
+    doHPT = True if args.doHPT in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False  
+
+    ## ------------ load params for desc calc ------------
+    import json
+    with open(args.calcParamJson, 'r') as ifh_dc:
+        desc_calc_param = json.load(ifh_dc)
+    with open(args.normParamJson, 'r') as ifh_dn:
+        desc_norm_param = json.load(ifh_dn)
+    with open(args.impuParamJson, 'r') as ifh_di:
+        desc_impu_param = json.load(ifh_di)
+
+    filePathOut = args.output
+
+    ##
+    runScript(fileNameIn, sep, colName_mid, colName_split, colName_y,
+              modelType, ml_method_list, rng, n_jobs, logy, doHPT, 
+              desc_calc_param, desc_norm_param, desc_impu_param, 
+              filePathOut)      
+
 if __name__ == '__main__':
     main()

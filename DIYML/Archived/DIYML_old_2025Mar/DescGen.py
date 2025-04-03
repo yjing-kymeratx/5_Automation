@@ -400,7 +400,7 @@ def descriptor_norm(dataTable, cols_ignore):
 ####################################################################
 ######################### Imputation ###############################
 ####################################################################
-def descriptor_imputation(dataTable, cols_ignore, descType=None, do_imputation=True):
+def descriptor_imputation(dataTable, cols_ignore, descType=None):
     dict_imput_param = {}
     import copy
     import pandas as pd
@@ -411,10 +411,9 @@ def descriptor_imputation(dataTable, cols_ignore, descType=None, do_imputation=T
             try:
                 median_values = dataTable_imput[col].median()
                 median_values = round(median_values) if descType in ['fingerprints'] else median_values
-                if do_imputation:
-                    count_nan = int(dataTable_imput[col].isna().sum())
-                    with pd.option_context('future.no_silent_downcasting', True):
-                        dataTable_imput[col] = dataTable_imput[col].fillna(median_values)
+                count_nan = int(dataTable_imput[col].isna().sum())
+                with pd.option_context('future.no_silent_downcasting', True):
+                    dataTable_imput[col] = dataTable_imput[col].fillna(median_values)
             except Exception as e:
                 print(f"Warning! This nan in desc <{col}> cannot be imputated using median ! Error msg: {e}\n")
             else:
@@ -450,24 +449,44 @@ def Args_Prepation(parser_desc):
     args = parser.parse_args()
     return args
 
-## 
-def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='Structure',
-               desc_rdkit=True, desc_fps=True, desc_cx=True, desc_calc_param=None, do_norm=True, do_imputation=True,
-               colName_custom_desc="NoCustomDescriptor", filePathOut="./Results/descriptors_prep_merged.csv"):
-
-    print(f">>>>Generating Descriptors ...")
-    import time
-    beginTime = time.time()
-    
-    ## Suppress RDKit warnings
+## Suppress RDKit warnings
+def mute_rdkit():
     from rdkit import RDLogger
     lg = RDLogger.logger()
     lg.setLevel(RDLogger.CRITICAL)
+####################################################################
+######################### main function ############################
+####################################################################
+def main():
+    mute_rdkit()
+    print(f">>>>Generating Descriptors ...")
 
-    ## output folder
-    import os
-    folderPathOut = os.path.dirname(filePathOut)    ## './results'
-    os.makedirs(folderPathOut, exist_ok=True)   
+    ## ------------ load args ------------
+    if True:
+        args = Args_Prepation(parser_desc='Descriptor calculation')
+        fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
+        sep = args.delimiter    # ',' 
+        # detect_encoding = True if args.detectEncoding else False
+        colName_mid = args.colId    # 'Compound Name'
+        colName_smi = args.colSmi    # 'Structure'
+        desc_fps = True if args.desc_fps=="True" else False
+        desc_rdkit = True if args.desc_rdkit=="True" else False
+        desc_cx = True if args.desc_cx=="True" else False
+        do_norm = True if args.norm=='True' else False
+        do_imputation = True if args.imput=='True' else False
+        colName_custom_desc = args.colPreCalcDesc
+        
+        ## output folder
+        import os
+        filePathOut = args.output 
+        folderPathOut = os.path.dirname(filePathOut)    ## './results'
+        os.makedirs(folderPathOut, exist_ok=True)   
+
+        ## descriptor calculation params
+        desc_calc_param = {'rd_physChem': True, 'rd_subStr': True, 'rd_clean': True, 
+                           'fp_radius': 3, 'fp_nBits': 2048, 
+                           'cx_version': 'V22', 'cx_desc': 'all'}
+        
 
     ## ------------ load data ------------
     import pandas as pd
@@ -475,16 +494,10 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
     print(f"\tDescGen load data table with shape: {dataTable_raw.shape}\n")
     assert colName_mid in dataTable_raw.columns, f"\tColumn name for mol ID <{colName_mid}> is not in the table.\n"
     assert colName_smi in dataTable_raw.columns, f"\tColumn name for mol smiles <{colName_smi}> is not in the table.\n"
+
     table_dict = {}
     print(f"\tCalculating descriptors (RDKit: {desc_rdkit}; FPs {desc_fps}; ChemAxon {desc_cx}) ...\n")
-    
     ## ------------ calculate rdkit properties ------------
-    ## descriptor calculation params
-    if desc_calc_param is None:
-        desc_calc_param = {'rd_physChem': True, 'rd_subStr': True, 'rd_clean': True, 
-                           'fp_radius': 3, 'fp_nBits': 2048, 
-                           'cx_version': 'V22', 'cx_desc': 'all'}
-
     if desc_rdkit:
         app = 'rdkit'
         print(f"\t\tNow calculating the <{app}> descriptors")
@@ -518,9 +531,10 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
         print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>.\n")
     
     ## ------------ extract the custom desc ------------
+    print(colName_custom_desc)
     if colName_custom_desc != "NoCustomDescriptor":
         app = 'custom'
-        print(f"\tNow extracting the custom <{app}> descriptors\n")
+        print(f"\tNow extracting the <{app}> descriptors\n")
         table_dict[app] = extract_custom_desc(dataTable_raw, colName_mid, colName_custom_desc)
         table_dict[app].to_csv(f"{folderPathOut}/descriptors_raw_{app}.csv", index=False)
         print(f"\t\tThe raw <{app}> descriptor data {table_dict[app].shape} has been saved to <{folderPathOut}/descriptors_raw_{app}.csv>\n")
@@ -530,7 +544,7 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
     for app in table_dict:
         data_table_prep = table_dict[app]
         ## merge
-        dataTable_desc_merged = dataTable_desc_merged.merge(right=data_table_prep, on=colName_mid, how='outer')
+        dataTable_desc_merged = dataTable_desc_merged.merge(right=data_table_prep, on='Compound Name', how='outer')
     print(f"\tThe merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors\n")
     
     ## ------------------- normalization -------------------
@@ -542,14 +556,16 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
 
     ## ------------------- imputation -------------------
     dict_imput_param_all = {}
-    dataTable_desc_merged, dict_imput_param = descriptor_imputation(dataTable_desc_merged, cols_ignore=[colName_mid], descType=app, do_imputation=do_imputation)
-    dict_imput_param_all.update(dict_imput_param)
+    if do_imputation:
+        dataTable_desc_merged, dict_imput_param = descriptor_imputation(dataTable_desc_merged, cols_ignore=[colName_mid], descType=app)
+        dict_imput_param_all.update(dict_imput_param)
 
     ## save merged desc
     print(f"\tAfter normalization & imputation, the merged data table has <{dataTable_desc_merged.shape[0]}> molecules and <{dataTable_desc_merged.shape[1]-1}> descriptors\n")
     dataTable_desc_merged.to_csv(filePathOut, index=False)
     print(f"\tThe prepared <all> descriptor data {dataTable_desc_merged.shape} has been saved to <{filePathOut}>\n")
     
+
     ## ------------------- param file save to json -------------------
     import json
     json_file_calc_param = f"{folderPathOut}/feature_calculator_param.json"
@@ -567,39 +583,10 @@ def run_script(fileNameIn, sep=',', colName_mid='Compound Name', colName_smi='St
     with open(json_file_imput_param, 'w') as ipdfh:
         json.dump(dict_imput_param_all, ipdfh)
         print(f"\tThe imputation paramater data has been saved to <{json_file_imput_param}>\n")
-
-    print(f">>>>The Descriptor generation process takes {round(time.time()-beginTime, 2)} sec")
-    return filePathOut, json_file_calc_param, json_file_norm_param, json_file_imput_param
-
-####################################################################
-######################### main function ############################
-####################################################################
-def main():
-    ## ------------ load args ------------
-    args = Args_Prepation(parser_desc='Descriptor calculation')
-    fileNameIn = args.input    # '../../1_DataPrep/results/data_input_clean.csv'
-    sep = args.delimiter    # ',' 
-    # detect_encoding = True if args.detectEncoding else False
-    colName_mid = args.colId    # 'Compound Name'
-    colName_smi = args.colSmi    # 'Structure'
-    desc_fps = True if args.desc_fps  in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    desc_rdkit = True if args.desc_rdkit in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    desc_cx = True if args.desc_cx in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    colName_custom_desc = args.colPreCalcDesc
-    do_norm = True if args.norm in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    do_imputation = True if args.imput in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    filePathOut = args.output
-
-    ## descriptor calculation params
-    # if desc_calc_param is None or desc_calc_param == {}:
-    if True:
-        desc_calc_param = {'rd_physChem': True, 'rd_subStr': True, 'rd_clean': True, 
-                        'fp_radius': 3, 'fp_nBits': 2048, 
-                        'cx_version': 'V22', 'cx_desc': 'all'}
-    ##
-    filePathOut_merged = run_script(fileNameIn, sep, colName_mid, colName_smi,
-                                    desc_rdkit, desc_fps, desc_cx, desc_calc_param, do_norm, do_imputation,
-                                    colName_custom_desc, filePathOut)
+        
+    # return result_dict
 
 if __name__ == '__main__':
     main()
+
+    

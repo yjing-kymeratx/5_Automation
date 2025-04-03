@@ -1,6 +1,7 @@
 '''
 To be added
 '''
+
 ####################################################################
 ####################### descriptor filters #########################
 ####################################################################
@@ -63,19 +64,19 @@ def VarianceFilter(X, threshold=0):
     return variance_table, desc_sele
 
 ## ------------ L2-based Filter ------------
-def L2_based_selection(X, y, modelType='regression', penalty_param=0.01):
+def L2_based_selection(X, y, model_type='regression', penalty_param=0.01):
     import pandas as pd
     ## define estimator model
-    if modelType == 'regression':
+    if model_type == 'regression':
         from sklearn import linear_model
-        print(f"\t\tThe model type is {modelType} so select Lasso model.\n")
+        print(f"\t\tThe model type is {model_type} so select Lasso model.\n")
         estimator = linear_model.Lasso(alpha=penalty_param, max_iter=5000, random_state=666666)
-    elif modelType == 'classification':
+    elif model_type == 'classification':
         from sklearn.svm import LinearSVC
-        print(f"\t\tThe model type is {modelType} so select LinearSVC model.\n")
+        print(f"\t\tThe model type is {model_type} so select LinearSVC model.\n")
         estimator = LinearSVC(penalty="l2", loss="squared_hinge", dual=True)
     else:
-        print(f"\tError! Your model type <{modelType}> is not in [regression, classification]\n")
+        print(f"\tError! Your model type <{model_type}> is not in [regression, classification]\n")
     
     ## fit estimator model
     y_np = y.to_numpy().reshape((len(y),))
@@ -109,13 +110,13 @@ def L2_based_selection(X, y, modelType='regression', penalty_param=0.01):
     return coef_table, desc_sele
 
 ## ------------ RF-based Filter ------------
-def RF_based_selection(X, y, modelType='regression', penalty_param=0.01):
+def RF_based_selection(X, y, model_type='regression', penalty_param=0.01):
     import pandas as pd
     ## define estimator model
-    if modelType == 'regression':
+    if model_type == 'regression':
         from sklearn.ensemble import RandomForestRegressor
         estimator = RandomForestRegressor(random_state=666666)
-    elif modelType == 'classification':
+    elif model_type == 'classification':
         from sklearn.ensemble import RandomForestClassifier
         estimator = RandomForestClassifier()
     
@@ -164,7 +165,7 @@ def Args_Prepation(parser_desc):
     parser.add_argument('-s', '--split', action="store", default="./Results/data_split.csv", help='The input file of the train/val/test split file')    
     parser.add_argument('-d', '--delimiter', action="store", default=',', help='The delimiter of input csv file for separate columns')
     parser.add_argument('--colId', action="store", default='Compound Name', help='The column name of the compound identifier')
-    parser.add_argument('--colAssay', action="store", default=None, help='The column name of the experiment outcome')
+    parser.add_argument('--coly', action="store", default=None, help='The column name of the experiment outcome')
     parser.add_argument('--cols', action="store", default='Split', help='The column name of the split')
 
     parser.add_argument('--modelType', action="store", default="regression", help='ML model type, either <regression> or <classification>')
@@ -180,38 +181,56 @@ def Args_Prepation(parser_desc):
     args = parser.parse_args()
     return args
 
-##
-def run_script(input_X, input_y, input_split, sep=',', colName_mid='Compound Name', colName_split='Split', colName_expt=None, 
-               modelType="regression", doMissingValueFilter=True, doVarianceFilter=True, doL2Filter=True, doFeatureImportanceFilter=True, 
-               json_file_imput_param="./Results/feature_imputation_params.json", 
-               filePathOut="./Results/data_input_4_ModelBuilding.csv"):
-
+####################################################################
+######################### main function ############################
+####################################################################
+def main():
     print(f">>>>Selecting important Descriptors ...")
-    import time
-    beginTime = time.time()
+    ## ------------ load args ------------
+    args = Args_Prepation(parser_desc='Feature selection')
+    if True:
+        input_X = args.desc
+        input_y = args.expt
+        input_split = args.split
+        sep = args.delimiter    # ',' 
+        colName_mid = args.colId    # 'Compound Name'
+        colName_split = args.cols
+        colName_y = args.coly
+
+        model_type = args.modelType    # 'regression', 'classification'
+        doMissingValueFilter = True if args.MissingValueFilter=="True" else False
+        json_file_imput_param = args.impuParamJson
+        doVarianceFilter = True if args.VarianceFilter=="True" else False
+        doL2Filter = True if args.L2Filter=="True" else False
+        doFeatureImportanceFilter = True if args.FIFilter=="True" else False   
+
+        ## output folder
+        import os
+        filePathOut = args.output 
+        folderPathOut = os.path.dirname(filePathOut)    ## './results'
+        os.makedirs(folderPathOut, exist_ok=True)   
 
     ## ------------ load data ------------
-    if True:
-        ## load all descriptor tables and merge together
-        import pandas as pd
-        dataTable_s = pd.read_csv(input_split, sep=sep).drop(columns=[colName_expt])    #, usecols=[colName_mid, colName_split]
-        dataTable_y = pd.read_csv(input_y, sep=sep, usecols=[colName_mid, colName_expt])
-        dataTable_X = pd.read_csv(input_X, sep=sep)
-        print(f"\tLoading split DataFrame: <{dataTable_s.shape}>, y DataFrame: <{dataTable_y.shape}>, X DataFrame: <{dataTable_X.shape}>\n")
+    ## load all descriptor tables and merge together
+    import pandas as pd
+    dataTable_s = pd.read_csv(input_split, sep=sep, usecols=[colName_mid, colName_split])
+    dataTable_y = pd.read_csv(input_y, sep=sep, usecols=[colName_mid, colName_y])
+    dataTable_X = pd.read_csv(input_X, sep=sep)
+    print(f"\tLoading split DataFrame: <{dataTable_s.shape}>, y DataFrame: <{dataTable_y.shape}>, X DataFrame: <{dataTable_X.shape}>\n")
 
-        dataTable_merged_all = pd.merge(left=dataTable_s, right=dataTable_y, on=colName_mid, how='inner')
-        dataTable_merged_all = dataTable_merged_all.merge(right=dataTable_X, on=colName_mid, how='inner')
-        print(f"\tThe merged table has shape {dataTable_merged_all.shape}\n")
+    dataTable_merged_all = pd.merge(left=dataTable_s, right=dataTable_y, on=colName_mid, how='inner')
+    dataTable_merged_all = dataTable_merged_all.merge(right=dataTable_X, on=colName_mid, how='inner')
+    print(f"\tThe merged table has shape {dataTable_merged_all.shape}\n")
 
-        ## select the training&validation data
-        dataTable_merged = dataTable_merged_all[~(dataTable_merged_all[colName_split].isin(['Test']))]
-        # dataTable_merged = dataTable_merged.drop(columns=[colName_split])
-        print(f"\tThe training/validation table has shape {dataTable_merged.shape}\n")
+    ## select the training&validation data
+    dataTable_merged = dataTable_merged_all[~(dataTable_merged_all[colName_split].isin(['Test']))]
+    # dataTable_merged = dataTable_merged.drop(columns=[colName_split])
+    print(f"\tThe training/validation table has shape {dataTable_merged.shape}\n")
 
-        ## get descriptors (X) and outcome (y)
-        colNames_X = [desc for desc in dataTable_X.columns if desc != colName_mid]
-        X, y = dataTable_merged[colNames_X], dataTable_merged[colName_expt]
-        print(f"\tX has shape {X.shape}, y has shape {y.shape}\n")
+    ## get descriptors (X) and outcome (y)
+    colNames_X = [desc for desc in dataTable_X.columns if desc != colName_mid]
+    X, y = dataTable_merged[colNames_X], dataTable_merged[colName_y]
+    print(f"\tX has shape {X.shape}, y has shape {y.shape}\n")
 
     ## ------------ filters ------------
     score_table_dict = {}
@@ -223,7 +242,7 @@ def run_script(input_X, input_y, input_split, sep=',', colName_mid='Compound Nam
     else:
         score_table_dict['MissingValueFilter'], desc_sele = missingValueFilter(list(X.columns), json_file_imput_param, nan_cutoff=0.2)
         X = X[desc_sele]
-
+        
     ## Variance-based Filter
     if doVarianceFilter:
         print(f"\tremove descriptors with too low variance\n")
@@ -233,18 +252,17 @@ def run_script(input_X, input_y, input_split, sep=',', colName_mid='Compound Nam
     ## L2-based Filter
     if doL2Filter:
         print(f"\tremove descriptors with L2 regulization\n")
-        score_table_dict['L2Filter'], desc_sele = L2_based_selection(X=X, y=y, modelType=modelType)
+        score_table_dict['L2Filter'], desc_sele = L2_based_selection(X=X, y=y, model_type=model_type)
         X = X[desc_sele]
 
     ## RF-based Filter
     if doFeatureImportanceFilter:
         print(f"\tremove descriptors with RF feature importance\n")
-        score_table_dict['FIFilter'], desc_sele = RF_based_selection(X=X, y=y, modelType=modelType)
+        score_table_dict['FIFilter'], desc_sele = RF_based_selection(X=X, y=y, model_type=model_type)
         X = X[desc_sele]
 
     ## ------------------ clean the dataset ------------------
-    cols_basic = [col for col in dataTable_merged_all.columns if col.split('_')[0] not in ['rd', 'fp', 'cx', 'custDesc']]
-    dataTable_merged_clean = dataTable_merged_all[cols_basic + desc_sele]
+    dataTable_merged_clean = dataTable_merged_all[[colName_mid, colName_split, colName_y] + desc_sele]
     print(f"\tThere are total <{len(desc_sele)}> descriptors selected for ML modeling")
     dataTable_merged_clean.to_csv(filePathOut, index=False)
     print(f"\tThe cleaned data table for ML model building is saved to <{filePathOut}>")
@@ -256,46 +274,11 @@ def run_script(input_X, input_y, input_split, sep=',', colName_mid='Compound Nam
         
         this_Table = this_Table.rename(columns={'Select': f'select_{filterType}'})
         score_table_merged = score_table_merged.merge(right=this_Table, on='Descriptor', how='outer')
-    score_table_merged['Select_final'] = score_table_merged['Descriptor'].apply(lambda x: 'Yes' if x in desc_sele else 'No')
 
-    ## output folder
-    import os
-    folderPathOut = os.path.dirname(filePathOut)    ## './results'
-    os.makedirs(folderPathOut, exist_ok=True)       
+    score_table_merged['Select_final'] = score_table_merged['Descriptor'].apply(lambda x: 'Yes' if x in desc_sele else 'No')
     fileNameOut_FSscore = f"{folderPathOut}/feature_scoring.csv"
     score_table_merged.to_csv(fileNameOut_FSscore, index=False)
     print(f"\tThe merged table contains all feature selection scores is saved to <{fileNameOut_FSscore}>")
-    
-    print(f">>>>The Feature Selection process takes {round(time.time()-beginTime, 2)} sec")
-    return filePathOut
-
-####################################################################
-######################### main function ############################
-####################################################################
-def main():
-    ## ------------ load args ------------
-    args = Args_Prepation(parser_desc='Feature selection')
-    
-    input_X = args.desc
-    input_y = args.expt
-    input_split = args.split
-    sep = args.delimiter    # ',' 
-    colName_mid = args.colId    # 'Compound Name'
-    colName_split = args.cols
-    colName_expt = args.colAssay
-
-    modelType = args.modelType    # 'regression', 'classification'
-    doMissingValueFilter = True if args.MissingValueFilter in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    json_file_imput_param = args.impuParamJson
-    doVarianceFilter = True if args.VarianceFilter in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    doL2Filter = True if args.L2Filter in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    doFeatureImportanceFilter = True if args.FIFilter in ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes'] else False
-    filePathOut = args.output
-
-    ## 
-    run_script(input_X, input_y, input_split, sep, colName_mid, colName_split, colName_expt, modelType,
-               doMissingValueFilter, doVarianceFilter, doL2Filter, doFeatureImportanceFilter,
-               json_file_imput_param, filePathOut)
 
 if __name__ == '__main__':
     main()

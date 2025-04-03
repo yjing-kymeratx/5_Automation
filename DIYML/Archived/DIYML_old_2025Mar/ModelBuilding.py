@@ -225,7 +225,7 @@ def Args_Prepation(parser_desc):
     parser = argparse.ArgumentParser(description=parser_desc)
 
     # parser.add_argument('-i', '--input', action="store", default='./results', help='The input folder of all desciptor files')
-    parser.add_argument('-i', '--input', action="store", default="./results/data_input_4_ModelBuilding.csv", help='The input file for model building')
+    parser.add_argument('-i', '--input', action="store", default="./Results/data_input_4_ModelBuilding.csv", help='The input file for model building')
     parser.add_argument('-d', '--delimiter', action="store", default=',', help='The delimiter of input csv file for separate columns')
     parser.add_argument('--colId', action="store", default='Compound Name', help='The column name of the compound identifier')
     parser.add_argument('--cols', action="store", default='Split', help='The column name of the split')
@@ -243,11 +243,11 @@ def Args_Prepation(parser_desc):
     parser.add_argument('--logy', action="store", default="True", help='take the log of y')
     parser.add_argument('--doHPT', action="store", default="True", help='do hyperparameter tunning')
 
-    parser.add_argument('--calcParamJson', action="store", default="$resultDir/feature_calculator_param.json", help='The json file of descriptor calculater parameters')
-    parser.add_argument('--normParamJson', action="store", default="$resultDir/feature_normalization_params.json", help='The json file of descriptor normalization parameters')
-    parser.add_argument('--impuParamJson', action="store", default="$resultDir/feature_imputation_params.json", help='The json file of descriptor imputation parameters')
+    parser.add_argument('--calcParamJson', action="store", default="./Results/feature_calculator_param.json", help='The json file of descriptor calculater parameters')
+    parser.add_argument('--normParamJson', action="store", default="./Results/feature_normalization_params.json", help='The json file of descriptor normalization parameters')
+    parser.add_argument('--impuParamJson', action="store", default="./Results/feature_imputation_params.json", help='The json file of descriptor imputation parameters')
 
-    parser.add_argument('-o', '--output', action="store", default="./Results/descriptors_prep_merged.csv", help='save the modeling performance file')
+    parser.add_argument('-o', '--output', action="store", default="./Results/performance_results.csv", help='save the modeling performance file')
 
     args = parser.parse_args()
     return args
@@ -332,6 +332,10 @@ def main():
         dataTable_test = dataTable_raw[dataTable_raw[colName_split]=='Test']
         X_test, y_test = dataTable_test[colName_X], dataTable_test[colName_y]
         print(f"\tTest_X: {X_test.shape}; Test_y: {y_test.shape}")
+        
+        ## All
+        X_all, y_all = dataTable_raw[colName_X], dataTable_raw[colName_y]
+        print(f"\tAll_X: {X_all.shape}; All_y: {y_all.shape}")
 
     ## ------------------------ models ------------------------ 
     model_dict_all = {}
@@ -405,18 +409,21 @@ def main():
     elif select_standar in ['max']:
         ml_sele = dataTable_perform_all.loc[dataTable_perform_all[select_matrics].idxmax()]['ML_Algorithm']
     else:
-        print(f"\tThe select_standar should be selected from [max, min]")
+        print(f"\tThe select_standar should be selected from [max, min]\n")
         ml_sele = 'To be determined'
     model_dict_all['Best_AutoML'] = model_dict_all[ml_sele] if ml_sele in model_dict_all else {}
+    print(f"\tThe BEST model is {ml_methed} model.\n")
 
 ## ------------ save & export model ------------
     import pickle
     for ml_methed in model_dict_all:
         if model_dict_all[ml_methed] is not None:
+            model_dict = model_dict_all[ml_methed]
+            model_dict['model'] = step_2_model_training(sk_model=model_dict['model'], X=X_all, y=y_all, logy=logy, doHPT=False, search_space=None, scoring='neg_mean_absolute_error', n_jobs=n_jobs)
+            
             fileNameOut_model = f"{folderPathOut_model}/{ml_methed}_models.pickle"
             with open(fileNameOut_model, 'wb') as ofh_models:
                 pickle.dump(model_dict, ofh_models)
-                print(f"\tThe {ml_methed} model is saved to <{fileNameOut_model}>")
-
+                print(f"\tThe {ml_methed} model is saved to <{fileNameOut_model}>\n")
 if __name__ == '__main__':
     main()
