@@ -162,10 +162,11 @@ def autoML():
     print(f"Step-5 done!")
 
 def main():
+    print(f"----------- Start -----------")
     import time
     begin_time = time.time()
     autoML()
-    print(f"Total time: {round(time.time()-begin_time, 2)} sec")
+    print(f"----------- Total time: {round(time.time()-begin_time, 2)} sec -----------")
 
 if __name__ == '__main__':
     main()
