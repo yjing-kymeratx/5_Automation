@@ -54,7 +54,7 @@ def step_1_model_init(ml_methed, n_jobs=-1, rng=666666):
     ## -------------------- KNN --------------------
     elif ml_methed in ['knn', 'k-nn', 'nearest neighbor', 'nearestneighbor']:
         from sklearn.neighbors import KNeighborsRegressor
-        sk_model = KNeighborsRegressor(n_neighbors=3, n_jobs=n_jobs)
+        sk_model = KNeighborsRegressor(n_neighbors=1, n_jobs=n_jobs)
         search_space = {'n_neighbors': [1, 3, 5, 10]}
 
     ## -------------------- Linear --------------------

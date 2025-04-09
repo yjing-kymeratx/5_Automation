@@ -167,6 +167,7 @@ def cleanUpSmiles(smi, canonical=True, errmsg=False):
 
 def clean_smiles(dataTable, colName_smi, canonical=True, errmsg=False):
     print(f"\t==>Now cleanning the Smiles...\n")
+    # print(list(dataTable.columns))
     assert colName_smi in dataTable.columns, f"\tError! Column <{colName_smi}> is not in the table!\n"
     dataTable[f"{colName_smi}_original"] = dataTable[colName_smi]
     dataTable[colName_smi] = dataTable[colName_smi].apply(lambda x: cleanUpSmiles(x, canonical=canonical, errmsg=errmsg))

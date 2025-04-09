@@ -49,7 +49,6 @@ def Load_Parameter_from_CSV(fileNameParam, true_label_list=['TRUE', 'True', 'tru
     for ml_key in ['linear', 'rf', 'svm', 'mlp', 'knn']:
         if ParameterDict[ml_key] in true_label_list:
             ParameterDict['ml_method_list'].append(ml_key)
-
     
     ##
     ParameterDict['hasVal'] = "Yes"
@@ -59,13 +58,7 @@ def Load_Parameter_from_CSV(fileNameParam, true_label_list=['TRUE', 'True', 'tru
 ####################################################################
 ######################### main function ############################
 ####################################################################
-def autoML():    
-    ########################## load args ########################
-    args = Args_Prepation(parser_desc='AutoML: automatic ML model building.')
-    fileNameIn = args.input    
-    true_label_list = ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']
-    ParameterDict = Load_Parameter_from_CSV(args.parameters, true_label_list)
-
+def autoML(fileNameIn, ParameterDict, true_label_list=['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']):    
     ########################## load params for desc calc ######################## 
     ## step-1
     detect_encoding = True if ParameterDict['detectEncoding'] in true_label_list else False
@@ -164,7 +157,14 @@ def autoML():
 def main():
     import time
     begin_time = time.time()
-    autoML()
+    ########################## load args ########################
+    args = Args_Prepation(parser_desc='AutoML: automatic ML model building.')
+    fileNameIn = args.input    
+    true_label_list = ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']
+    ParameterDict = Load_Parameter_from_CSV(args.parameters, true_label_list)
+
+    ########################## run model building ########################
+    autoML(fileNameIn, ParameterDict)
     print(f"Total time: {round(time.time()-begin_time, 2)} sec")
 
 if __name__ == '__main__':

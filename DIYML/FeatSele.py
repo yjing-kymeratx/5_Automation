@@ -5,7 +5,7 @@ To be added
 ####################### descriptor filters #########################
 ####################################################################
 ## ------------ remove descriptors with too many missing data ------------
-def missingValueFilter(desc_all, json_file_imput_param, nan_cutoff=0.2):
+def missingValueFilter(desc_all, json_file_imput_param, nan_cutoff=0.1):
     import pandas as pd
     nan_ratio_dict, desc_sele = {}, []
     ## load imputation param file

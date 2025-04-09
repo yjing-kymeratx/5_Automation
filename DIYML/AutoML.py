@@ -49,7 +49,6 @@ def Load_Parameter_from_CSV(fileNameParam, true_label_list=['TRUE', 'True', 'tru
     for ml_key in ['linear', 'rf', 'svm', 'mlp', 'knn']:
         if ParameterDict[ml_key] in true_label_list:
             ParameterDict['ml_method_list'].append(ml_key)
-
     
     ##
     ParameterDict['hasVal'] = "Yes"
@@ -59,17 +58,11 @@ def Load_Parameter_from_CSV(fileNameParam, true_label_list=['TRUE', 'True', 'tru
 ####################################################################
 ######################### main function ############################
 ####################################################################
-def autoML():    
-    ########################## load args ########################
-    args = Args_Prepation(parser_desc='AutoML: automatic ML model building.')
-    fileNameIn = args.input    
-    true_label_list = ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']
-    ParameterDict = Load_Parameter_from_CSV(args.parameters, true_label_list)
-
+def autoML(fileNameIn, ParameterDict, true_label_list=['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']):    
     ########################## load params for desc calc ######################## 
     ## step-1
     detect_encoding = True if ParameterDict['detectEncoding'] in true_label_list else False
-    sep = ParameterDict['delimiter']
+    sep = ',' if ParameterDict['delimiter'] in ['comma'] else ','
     colName_mid = ParameterDict['colId']
     colName_smi = ParameterDict['colSmi']
     print('********************', colName_smi)
@@ -104,6 +97,9 @@ def autoML():
 
 
     ## --------------------------------------------------------
+    # desc_calc_param = {'rd_physChem': True, 'rd_subStr': True, 'rd_clean': True, 
+    #                        'fp_radius': 3, 'fp_nBits': 2048, 
+    #                        'cx_version': 'V22', 'cx_desc': 'all'}
 
     ######################## model building ############################
     import os, sys
@@ -134,8 +130,6 @@ def autoML():
 
 
     ## ----------------- step-4 -----------------
-
-
     colName_split = 'Split'
     filePathOut_4ML = FeatSele.run_script(input_X=filePathOut_Desc, input_y=filePathOut_y, input_split=filePathOut_split, sep=sep, 
                                           colName_mid=colName_mid, colName_split=colName_split, colName_expt=colName_expt,
@@ -162,11 +156,17 @@ def autoML():
     print(f"Step-5 done!")
 
 def main():
-    print(f"----------- Start -----------")
     import time
     begin_time = time.time()
-    autoML()
-    print(f"----------- Total time: {round(time.time()-begin_time, 2)} sec -----------")
+    ########################## load args ########################
+    args = Args_Prepation(parser_desc='AutoML: automatic ML model building.')
+    fileNameIn = args.input    
+    true_label_list = ['TRUE', 'True', 'true', 'YES', 'Yes', 'yes']
+    ParameterDict = Load_Parameter_from_CSV(args.parameters, true_label_list)
+
+    ########################## run model building ########################
+    autoML(fileNameIn, ParameterDict, true_label_list)
+    print(f"Total time: {round(time.time()-begin_time, 2)} sec")
 
 if __name__ == '__main__':
     main()
