@@ -5,7 +5,7 @@ To be added
 ####################### descriptor filters #########################
 ####################################################################
 ## ------------ remove descriptors with too many missing data ------------
-def missingValueFilter(desc_all, json_file_imput_param, nan_cutoff=0.1):
+def missingValueFilter(desc_all, json_file_imput_param, nan_cutoff=0):
     import pandas as pd
     nan_ratio_dict, desc_sele = {}, []
     ## load imputation param file
@@ -217,11 +217,12 @@ def run_script(input_X, input_y, input_split, sep=',', colName_mid='Compound Nam
     score_table_dict = {}
     ## remove descriptors with too many missing data
     if doMissingValueFilter:
-        print(f"\tremove descriptors with too many missing data\n")
+        nan_cutoff=0
+        print(f"\tremove descriptors with too many missing data, NaN cutoff is {nan_cutoff}\n")
         score_table_dict['MissingValueFilter'], desc_sele = missingValueFilter(list(X.columns), json_file_imput_param, nan_cutoff=0.2)
         X = X[desc_sele]
     else:
-        score_table_dict['MissingValueFilter'], desc_sele = missingValueFilter(list(X.columns), json_file_imput_param, nan_cutoff=0.2)
+        score_table_dict['MissingValueFilter'], desc_sele = missingValueFilter(list(X.columns), json_file_imput_param, nan_cutoff=1)
         X = X[desc_sele]
 
     ## Variance-based Filter

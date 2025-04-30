@@ -68,7 +68,32 @@ def step_1_model_init(ml_methed, n_jobs=-1, rng=666666):
     return sk_model, search_space
 
 ## <===================== model training =====================>
-def _HyperParamSearch(sk_model, X, y, search_space=None, search_method='grid', scoring='neg_mean_absolute_error', nFolds=5, n_jobs=-1):
+def _calc_weights(y_train):
+    # y_train = y_train.reshape(len(y_train))
+    import numpy as np
+    from collections import Counter
+
+    # Create bins and calculate the frequency of each bin
+    # bins = np.histogram_bin_edges(y_train, bins='auto')
+    bins = np.histogram_bin_edges(y_train, bins=5)
+    bin_indices = np.digitize(y_train, bins)
+    bin_counts = np.bincount(bin_indices)
+
+    
+    # Compute inverse frequencies for each bin
+    inverse_bin_counts = 1 / bin_counts[bin_indices]
+    
+    # You can adjust the power value to control the amplification
+    power = 2 
+    weights = np.power(inverse_bin_counts, power)
+    
+    # Normalize weights
+    # weights = inverse_bin_counts / np.sum(inverse_bin_counts)
+    weights /= np.sum(weights)
+
+    return weights
+
+def _HyperParamSearch(sk_model, X, y, search_space=None, search_method='grid', scoring='neg_mean_absolute_error', nFolds=5, n_jobs=-1, weights=None):
     print(f"\t\tStart Hyper-Parameter Tunning ...\n")
     SearchResults = {'best_model': None, 'best_score':None, 'best_param':None}
 
@@ -81,7 +106,10 @@ def _HyperParamSearch(sk_model, X, y, search_space=None, search_method='grid', s
 
     from sklearn.model_selection import GridSearchCV
     optimizer = GridSearchCV(estimator=sk_model, param_grid=search_space, scoring=scoring, cv=nFolds, n_jobs=n_jobs)
-    optimizer.fit(X, y)
+    if weights is not None:
+        optimizer.fit(X, y, sample_weight=weights)
+    else:
+        optimizer.fit(X, y)
     ## search results
     SearchResults['optimizer'] = optimizer    ## optimizer.best_estimator_, optimizer.best_score_
     SearchResults['best_param'] = optimizer.best_estimator_.get_params()
@@ -107,13 +135,19 @@ def step_2_model_training(sk_model, X, y, logy=False, doHPT=False, search_space=
         y_log = y
     # y = np.log10(y) if logy else y
 
+    # weights = _calc_weights(y_log)
+    weights = None
+
     ## ----- hyper parameter search ----------------
     if doHPT and search_space is not None:
-        HPSearchResults = _HyperParamSearch(sk_model, X, y_log, search_space, search_method='grid', scoring=scoring, nFolds=5, n_jobs=n_jobs)
+        HPSearchResults = _HyperParamSearch(sk_model, X, y_log, search_space, search_method='grid', scoring=scoring, nFolds=5, n_jobs=n_jobs, weights=weights)
         sk_model = sk_model.set_params(**HPSearchResults['best_param'])    #optimizer.best_estimator_
 
     ## ----- fit the model -----
-    sk_model.fit(X, y_log)
+    if weights is None:
+        sk_model.fit(X, y_log)
+    else:
+        sk_model.fit(X, y_log, sample_weight=weights)
 
     ## ----------------------------------------------------------------        
     print(f"\t\tThe model training costs time = {(time.time()-beginTime):.2f} s ................\n")
@@ -328,6 +362,7 @@ def runScript(fileNameIn, sep=',', colName_mid='Compound Name', colName_split='S
     model_dict_all = {}
     # model_dict_performance = {}
     scoring = 'r2'    # 'neg_mean_absolute_error'
+    scoring = 'neg_mean_absolute_percentage_error'
     ##
     for ml_methed in ml_method_list:
         model_dict = {'data': {'training': dataTable_train[colName_mid], 'validation': dataTable_val[colName_mid], 'test': dataTable_test[colName_mid]},
